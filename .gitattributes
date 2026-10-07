@@ -1,2 +1,8 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Keep secrets out of git archive exports
+.env export-ignore
+**/.env export-ignore
+**/node_modules export-ignore
+**/dist export-ignore

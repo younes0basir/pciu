@@ -1,0 +1,22 @@
+#!/bin/sh
+# Block commits that add secrets or bulky artifacts.
+# Enable once: git config core.hooksPath .githooks
+
+set -e
+
+blocked_pattern='(^|/)(\.env$|\.env\.[^/]+$|node_modules/|/dist/|\.pem$|\.key$|credentials\.json$)'
+
+while IFS= read -r -d '' path; do
+  case "$path" in
+    *.env.example|*.env.*.example) continue ;;
+  esac
+  if printf '%s\n' "$path" | grep -Eq "$blocked_pattern"; then
+    echo "pre-commit: blocked — do not commit: $path"
+    echo "  (secrets belong in local .env; use *.env.example in git)"
+    exit 1
+  fi
+done <<EOF
+$(git diff --cached --name-only -z)
+EOF
+
+exit 0
