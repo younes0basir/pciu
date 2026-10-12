@@ -13,6 +13,7 @@ const emptyForm = {
   priority: '3',
   chiefComplaint: '',
   arrivalMode: 'À pied',
+  criticalFlag: false,
 }
 
 export function ChiefRegisterPatientModal({ open, onClose, onSubmit, role = 'chief' }) {
@@ -40,6 +41,7 @@ export function ChiefRegisterPatientModal({ open, onClose, onSubmit, role = 'chi
         priority: Number(form.priority),
         chiefComplaint: form.chiefComplaint.trim(),
         arrivalMode: form.arrivalMode || undefined,
+        criticalFlag: form.criticalFlag,
       })
       setForm(emptyForm)
       onClose()
@@ -162,6 +164,18 @@ export function ChiefRegisterPatientModal({ open, onClose, onSubmit, role = 'chi
               </select>
             </label>
           </div>
+
+          <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-rose-100 bg-rose-50/80 px-3 py-2.5">
+            <input
+              type="checkbox"
+              checked={form.criticalFlag}
+              onChange={(e) => updateField('criticalFlag', e.target.checked)}
+              className="mt-1 size-4 rounded border-rose-300"
+            />
+            <span className="text-sm font-semibold text-rose-900">
+              Danger immédiat suspecté (circuit critique — alerte équipe)
+            </span>
+          </label>
 
           <label className="block">
             <span className="text-xs font-bold text-slate-600">Motif principal *</span>

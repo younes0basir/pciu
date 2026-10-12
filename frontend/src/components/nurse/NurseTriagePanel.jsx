@@ -24,7 +24,12 @@ export function NurseTriagePanel({ detail, busy, onSave }) {
     setSaved(false)
   }, [detail?.visitId, detail?.priority])
 
-  if (!detail || detail.status !== 'waiting') return null
+  const triageOpen =
+    detail &&
+    detail.status === 'waiting' &&
+    (!detail.careStage || ['triage_pending', 'waiting_care', 'registered'].includes(detail.careStage))
+
+  if (!triageOpen) return null
 
   async function submit(event) {
     event.preventDefault()

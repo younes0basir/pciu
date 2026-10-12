@@ -42,11 +42,21 @@ export default function BoardPage() {
         </p>
       )}
 
+      <div className="max-w-md text-center text-sm font-medium text-muted-foreground">
+        <p>
+          Cette page vérifie la connexion API et vous oriente vers votre{' '}
+          <strong className="text-foreground">tableau par rôle</strong> (accueil, infirmier, médecin,
+          chef). Le flux opérationnel complet vit dans ces tableaux ;{' '}
+          <code className="rounded bg-muted px-1 py-0.5 text-xs">GET /api/board</code> reste le
+          snapshot JSON pour votre rôle.
+        </p>
+      </div>
+
       <Link
         to={homeRoute}
         className={`inline-flex items-center justify-center rounded-2xl px-8 py-4 text-xl font-extrabold text-white ${theme.primaryBtn}`}
       >
-        PICU Board
+        Ouvrir mon tableau
       </Link>
 
       {auth?.user?.role === 'admin' && (

@@ -60,6 +60,7 @@ export function SignInPage({
   onCreateAccount,
   errorMessage,
   submitting = false,
+  extraAboveForm = null,
 }) {
   const [showPassword, setShowPassword] = useState(false)
 
@@ -72,6 +73,8 @@ export function SignInPage({
               {title}
             </h1>
             <p className="animate-element animate-delay-200 text-muted-foreground">{description}</p>
+
+            {extraAboveForm}
 
             <form className="space-y-5" onSubmit={onSignIn}>
               <div className="animate-element animate-delay-300">

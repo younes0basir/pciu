@@ -17,6 +17,7 @@ async function getAvailableBeds() {
     WHERE b.is_active = true 
       AND r.is_active = true 
       AND z.is_active = true 
+      AND COALESCE(b.operational_status, 'ready') = 'ready'
       AND ba.id IS NULL
     ORDER BY z.display_order ASC, r.display_order ASC, b.display_order ASC, b.label ASC`
   );

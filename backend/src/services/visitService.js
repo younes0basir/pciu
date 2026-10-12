@@ -1,8 +1,16 @@
 const { query, withTransaction } = require('../config/db');
+const { logVisitAction } = require('../lib/visitActionLogger');
 const {
   assertDoctorCanManageVisit,
   assertNurseCanManageVisit,
 } = require('./roomAccessService');
+const {
+  findIdempotentActionResult,
+  recordVisitEvent,
+} = require('./visitEventService');
+const { assertBedAssignable } = require('./resourceService');
+const { decideDisposition } = require('./careService');
+const { V3_OUTCOMES, mapCloseOutcomeToLegacyStatus } = require('../lib/careStage');
 
 // Helper to generate human-readable public code like V-2610-A1B2
 function generatePublicCode() {
@@ -15,7 +23,7 @@ function generatePublicCode() {
   return `V-${dateStr}-${rand}`;
 }
 
-async function registerVisit(data, actorUser) {
+async function registerVisit(data, actorUser, actionContext = {}) {
   const {
     firstName,
     lastName,
@@ -26,6 +34,7 @@ async function registerVisit(data, actorUser) {
     priority,
     chiefComplaint,
     arrivalMode,
+    criticalFlag,
   } = data;
 
   if (!firstName || !lastName) {
@@ -39,6 +48,11 @@ async function registerVisit(data, actorUser) {
   }
 
   return withTransaction(async (client) => {
+    const replay = await findIdempotentActionResult(client, actionContext.idempotencyKey);
+    if (replay) {
+      return replay;
+    }
+
     let patientId;
 
     // 1. Find or create patient
@@ -92,8 +106,11 @@ async function registerVisit(data, actorUser) {
 
     // 2. Ensure patient has no existing active visit
     const activeVisit = await client.query(
-      `SELECT id, status FROM visits 
-       WHERE patient_id = $1 AND status IN ('waiting', 'placed', 'in_treatment')`,
+      `SELECT id, status, care_stage FROM visits 
+       WHERE patient_id = $1
+         AND closed_at IS NULL
+         AND (status IN ('waiting', 'placed', 'in_treatment')
+              OR care_stage IS DISTINCT FROM 'completed')`,
       [patientId]
     );
 
@@ -111,11 +128,15 @@ async function registerVisit(data, actorUser) {
         public_code,
         patient_id,
         status,
+        care_stage,
+        patient_location,
         priority,
         chief_complaint,
         arrival_mode,
-        registered_by
-      ) VALUES ($1, $2, 'waiting', $3, $4, $5, $6)
+        registered_by,
+        critical_flag,
+        current_orientation
+      ) VALUES ($1, $2, 'waiting', 'triage_pending', 'waiting_area', $3, $4, $5, $6, $7, $8)
       RETURNING *`,
       [
         publicCode,
@@ -124,47 +145,59 @@ async function registerVisit(data, actorUser) {
         chiefComplaint.trim(),
         arrivalMode || null,
         actorUser?.id || null,
+        Boolean(criticalFlag),
+        criticalFlag ? 'critical' : null,
       ]
     );
 
     const visit = visitResult.rows[0];
 
-    // 4. Record audit event 'registered'
-    await client.query(
-      `INSERT INTO visit_events (
-        visit_id,
-        actor_user_id,
-        event_type,
-        from_status,
-        to_status,
-        metadata
-      ) VALUES ($1, $2, 'registered', NULL, 'waiting', $3)`,
-      [
-        visit.id,
-        actorUser?.id || null,
-        JSON.stringify({
-          priority,
-          chiefComplaint: chiefComplaint.trim(),
-          arrivalMode: arrivalMode || null,
-        }),
-      ]
-    );
-
-    return {
+    const result = {
       visitId: visit.id,
       publicCode: visit.public_code,
       status: visit.status,
+      careStage: visit.care_stage,
       priority: visit.priority,
       chiefComplaint: visit.chief_complaint,
       patientId,
       patientName: `${firstName.trim()} ${lastName.trim()}`,
       arrivedAt: visit.arrived_at,
     };
+
+    await recordVisitEvent(client, {
+      visitId: visit.id,
+      actorUserId: actorUser?.id || null,
+      actionContext,
+      eventType: 'registered',
+      fromStatus: null,
+      toStatus: 'waiting',
+      metadata: {
+        priority,
+        chiefComplaint: chiefComplaint.trim(),
+        arrivalMode: arrivalMode || null,
+      },
+      actionResult: result,
+    });
+
+    logVisitAction({
+      action: 'register',
+      visitId: visit.id,
+      actorUserId: actorUser?.id ?? null,
+      actorType: actionContext.actorType ?? 'user',
+      status: 'ok',
+    });
+
+    return result;
   });
 }
 
-async function callVisit(visitId, actorUser) {
+async function callVisit(visitId, actorUser, actionContext = {}) {
   return withTransaction(async (client) => {
+    const replay = await findIdempotentActionResult(client, actionContext.idempotencyKey);
+    if (replay) {
+      return replay;
+    }
+
     const visitRes = await client.query(
       'SELECT id, status, call_count FROM visits WHERE id = $1 FOR UPDATE',
       [visitId]
@@ -193,41 +226,50 @@ async function callVisit(visitId, actorUser) {
       [newCallCount, visitId]
     );
 
-    // Record audit event 'called'
-    await client.query(
-      `INSERT INTO visit_events (
-        visit_id,
-        actor_user_id,
-        event_type,
-        from_status,
-        to_status,
-        metadata
-      ) VALUES ($1, $2, 'called', 'waiting', 'waiting', $3)`,
-      [
-        visitId,
-        actorUser?.id || null,
-        JSON.stringify({ callCount: newCallCount }),
-      ]
-    );
-
-    return {
+    const result = {
       visitId: updatedRes.rows[0].id,
       status: updatedRes.rows[0].status,
       callCount: newCallCount,
       lastCalledAt: updatedRes.rows[0].last_called_at,
     };
+
+    await recordVisitEvent(client, {
+      visitId,
+      actorUserId: actorUser?.id || null,
+      actionContext,
+      eventType: 'called',
+      fromStatus: 'waiting',
+      toStatus: 'waiting',
+      metadata: { callCount: newCallCount },
+      actionResult: result,
+    });
+
+    logVisitAction({
+      action: 'call',
+      visitId,
+      actorUserId: actorUser?.id ?? null,
+      actorType: actionContext.actorType ?? 'user',
+      status: 'ok',
+    });
+
+    return result;
   });
 }
 
-async function placeVisit(visitId, bedId, actorUser) {
+async function placeVisit(visitId, bedId, actorUser, actionContext = {}) {
   if (!bedId) {
     throw { status: 400, message: 'bedId is required.' };
   }
 
   return withTransaction(async (client) => {
+    const replay = await findIdempotentActionResult(client, actionContext.idempotencyKey);
+    if (replay) {
+      return replay;
+    }
+
     // 1. Lock visit
     const visitRes = await client.query(
-      'SELECT id, status FROM visits WHERE id = $1 FOR UPDATE',
+      'SELECT id, status, care_stage FROM visits WHERE id = $1 FOR UPDATE',
       [visitId]
     );
 
@@ -236,6 +278,9 @@ async function placeVisit(visitId, bedId, actorUser) {
     }
 
     const visit = visitRes.rows[0];
+    if (visit.care_stage === 'completed') {
+      throw { status: 400, message: 'Visite déjà terminée.' };
+    }
     if (visit.status !== 'waiting') {
       throw {
         status: 400,
@@ -243,15 +288,7 @@ async function placeVisit(visitId, bedId, actorUser) {
       };
     }
 
-    // 2. Lock bed and verify active
-    const bedRes = await client.query(
-      'SELECT id, label, is_active FROM beds WHERE id = $1',
-      [bedId]
-    );
-
-    if (bedRes.rowCount === 0 || !bedRes.rows[0].is_active) {
-      throw { status: 404, message: 'Bed not found or is currently inactive.' };
-    }
+    const bedRow = await assertBedAssignable(client, bedId);
 
     // 3. Verify bed is free
     const currentAssignment = await client.query(
@@ -287,35 +324,47 @@ async function placeVisit(visitId, bedId, actorUser) {
       [visitId, bedId, actorUser?.id || null]
     );
 
-    // 6. Update visit status to 'placed'
     await client.query(
-      `UPDATE visits SET status = 'placed', updated_at = NOW() WHERE id = $1`,
+      `UPDATE visits
+       SET status = 'placed',
+           care_stage = CASE
+             WHEN care_stage IN ('registered', 'triage_pending') THEN 'waiting_care'
+             ELSE care_stage
+           END,
+           patient_location = 'resource',
+           updated_at = NOW()
+       WHERE id = $1`,
       [visitId]
     );
 
-    // 7. Record event 'placed'
-    await client.query(
-      `INSERT INTO visit_events (
-        visit_id,
-        actor_user_id,
-        event_type,
-        from_status,
-        to_status,
-        metadata
-      ) VALUES ($1, $2, 'placed', 'waiting', 'placed', $3)`,
-      [
-        visitId,
-        actorUser?.id || null,
-        JSON.stringify({ bedId, assignmentId: assignRes.rows[0].id }),
-      ]
-    );
-
-    return {
+    const result = {
       visitId,
       status: 'placed',
+      careStage: 'waiting_care',
       bedId,
       assignedAt: assignRes.rows[0].assigned_at,
     };
+
+    await recordVisitEvent(client, {
+      visitId,
+      actorUserId: actorUser?.id || null,
+      actionContext,
+      eventType: 'placed',
+      fromStatus: 'waiting',
+      toStatus: 'placed',
+      metadata: { bedId, assignmentId: assignRes.rows[0].id },
+      actionResult: result,
+    });
+
+    logVisitAction({
+      action: 'place',
+      visitId,
+      actorUserId: actorUser?.id ?? null,
+      actorType: actionContext.actorType ?? 'user',
+      status: 'ok',
+    });
+
+    return result;
   });
 }
 
@@ -380,10 +429,15 @@ function cleanClinicalText(value) {
   return text.length > 0 ? text : null;
 }
 
-async function startConsultation(visitId, actorUser, data = {}) {
+async function startConsultation(visitId, actorUser, data = {}, actionContext = {}) {
   return withTransaction(async (client) => {
+    const replay = await findIdempotentActionResult(client, actionContext.idempotencyKey);
+    if (replay) {
+      return replay;
+    }
+
     const visitRes = await client.query(
-      'SELECT id, status FROM visits WHERE id = $1 FOR UPDATE',
+      'SELECT id, status, care_stage FROM visits WHERE id = $1 FOR UPDATE',
       [visitId]
     );
 
@@ -392,21 +446,33 @@ async function startConsultation(visitId, actorUser, data = {}) {
     }
 
     const visit = visitRes.rows[0];
-    if (visit.status !== 'placed') {
+    const canStart =
+      visit.status === 'placed' ||
+      visit.status === 'in_treatment' ||
+      (visit.status === 'waiting' &&
+        ['waiting_care', 'triage_pending', 'in_care'].includes(visit.care_stage));
+
+    if (!canStart) {
       throw {
         status: 400,
-        message: `Cannot start consultation. Current status is '${visit.status}' (must be 'placed').`,
+        message: `Cannot start consultation. Current status is '${visit.status}'.`,
       };
     }
 
-    // Verify bed is assigned
     const bedAssignment = await client.query(
       'SELECT id, bed_id FROM bed_assignments WHERE visit_id = $1 AND released_at IS NULL',
       [visitId]
     );
 
-    if (bedAssignment.rowCount === 0) {
-      throw { status: 400, message: 'Visit has no active bed assignment.' };
+    if (bedAssignment.rowCount === 0 && visit.care_stage !== 'triage_pending') {
+      // V3: care can start without bed only for critical fast-track (optional bed later)
+      const criticalRes = await client.query(
+        'SELECT critical_flag FROM visits WHERE id = $1',
+        [visitId],
+      );
+      if (!criticalRes.rows[0]?.critical_flag) {
+        throw { status: 400, message: 'Visit has no active bed assignment.' };
+      }
     }
 
     if (actorUser.role === 'doctor') {
@@ -426,45 +492,60 @@ async function startConsultation(visitId, actorUser, data = {}) {
       [visitId, doctorId, actorUser.id, diagnosis, notes]
     );
 
-    // Update visit status to 'in_treatment'
     await client.query(
-      `UPDATE visits SET status = 'in_treatment', updated_at = NOW() WHERE id = $1`,
+      `UPDATE visits
+       SET status = 'in_treatment',
+           care_stage = 'in_care',
+           care_started_at = COALESCE(care_started_at, NOW()),
+           patient_location = COALESCE(patient_location, 'resource'),
+           updated_at = NOW()
+       WHERE id = $1`,
       [visitId]
     );
 
-    // Record audit event 'consultation_started'
-    await client.query(
-      `INSERT INTO visit_events (
-        visit_id,
-        actor_user_id,
-        event_type,
-        from_status,
-        to_status,
-        metadata
-      ) VALUES ($1, $2, 'consultation_started', 'placed', 'in_treatment', $3)`,
-      [
-        visitId,
-        actorUser?.id || null,
-        JSON.stringify({
-          consultationId: consultRes.rows[0].id,
-          doctorId,
-          recordedBy: actorUser.id,
-        }),
-      ]
-    );
-
-    return {
+    const result = {
       visitId,
       status: 'in_treatment',
+      careStage: 'in_care',
       consultationId: consultRes.rows[0].id,
       doctorId,
       startedAt: consultRes.rows[0].started_at,
     };
+
+    await recordVisitEvent(client, {
+      visitId,
+      actorUserId: actorUser?.id || null,
+      actionContext,
+      eventType: 'consultation_started',
+      fromStatus: 'placed',
+      toStatus: 'in_treatment',
+      metadata: {
+        consultationId: consultRes.rows[0].id,
+        doctorId,
+        recordedBy: actorUser.id,
+      },
+      actionResult: result,
+    });
+
+    logVisitAction({
+      action: 'start',
+      visitId,
+      actorUserId: actorUser?.id ?? null,
+      actorType: actionContext.actorType ?? 'user',
+      status: 'ok',
+    });
+
+    return result;
   });
 }
 
-async function updateConsultation(visitId, data, actorUser) {
+async function updateConsultation(visitId, data, actorUser, actionContext = {}) {
   return withTransaction(async (client) => {
+    const replay = await findIdempotentActionResult(client, actionContext.idempotencyKey);
+    if (replay) {
+      return replay;
+    }
+
     const visitRes = await client.query(
       'SELECT id, status FROM visits WHERE id = $1 FOR UPDATE',
       [visitId]
@@ -523,39 +604,45 @@ async function updateConsultation(visitId, data, actorUser) {
       [doctorId, actorUser.id, diagnosis, notes, consult.id]
     );
 
-    await client.query(
-      `INSERT INTO visit_events (
-        visit_id,
-        actor_user_id,
-        event_type,
-        from_status,
-        to_status,
-        metadata
-      ) VALUES ($1, $2, 'consultation_updated', 'in_treatment', 'in_treatment', $3)`,
-      [
-        visitId,
-        actorUser.id,
-        JSON.stringify({
-          consultationId: updated.rows[0].id,
-          doctorId,
-          recordedBy: actorUser.id,
-        }),
-      ]
-    );
-
-    return {
+    const result = {
       visitId,
       consultationId: updated.rows[0].id,
       doctorId,
       diagnosis,
       notes,
     };
+
+    await recordVisitEvent(client, {
+      visitId,
+      actorUserId: actorUser.id,
+      actionContext,
+      eventType: 'consultation_updated',
+      fromStatus: 'in_treatment',
+      toStatus: 'in_treatment',
+      metadata: {
+        consultationId: updated.rows[0].id,
+        doctorId,
+        recordedBy: actorUser.id,
+      },
+      actionResult: result,
+    });
+
+    logVisitAction({
+      action: 'fill',
+      visitId,
+      actorUserId: actorUser?.id ?? null,
+      actorType: actionContext.actorType ?? 'user',
+      status: 'ok',
+    });
+
+    return result;
   });
 }
 
-async function closeVisit(visitId, data, actorUser) {
+async function closeVisit(visitId, data, actorUser, actionContext = {}) {
   const { outcome, diagnosis, notes, releaseReason } = data;
-  const allowedOutcomes = ['discharged', 'transferred', 'left_without_seen'];
+  const legacyOutcomes = ['discharged', 'transferred', 'left_without_seen'];
+  const allowedOutcomes = [...new Set([...legacyOutcomes, ...V3_OUTCOMES])];
 
   if (!outcome || !allowedOutcomes.includes(outcome)) {
     throw {
@@ -564,9 +651,18 @@ async function closeVisit(visitId, data, actorUser) {
     };
   }
 
+  if (outcome === 'admitted') {
+    return decideDisposition(visitId, { outcome: 'admitted' }, actorUser, actionContext);
+  }
+
   return withTransaction(async (client) => {
+    const replay = await findIdempotentActionResult(client, actionContext.idempotencyKey);
+    if (replay) {
+      return replay;
+    }
+
     const visitRes = await client.query(
-      'SELECT id, status FROM visits WHERE id = $1 FOR UPDATE',
+      'SELECT id, status, care_stage FROM visits WHERE id = $1 FOR UPDATE',
       [visitId]
     );
 
@@ -575,20 +671,28 @@ async function closeVisit(visitId, data, actorUser) {
     }
 
     const visit = visitRes.rows[0];
-    if (!['placed', 'in_treatment'].includes(visit.status)) {
+    const leftOutcomes = ['left_without_seen', 'left_before_seen', 'left_during_care'];
+    const canCloseFromWaiting =
+      visit.status === 'waiting' && leftOutcomes.includes(outcome);
+    if (
+      !['placed', 'in_treatment'].includes(visit.status) &&
+      !canCloseFromWaiting &&
+      visit.care_stage !== 'disposition_pending'
+    ) {
       throw {
         status: 400,
-        message: `Cannot close visit. Current status is '${visit.status}' (must be 'placed' or 'in_treatment').`,
+        message: `Cannot close visit. Current status is '${visit.status}'.`,
       };
     }
 
-    if (actorUser.role === 'doctor') {
+    if (actorUser.role === 'doctor' && visit.status !== 'waiting') {
       await assertDoctorCanManageVisit(client, actorUser, visitId);
-    } else if (actorUser.role === 'nurse') {
+    } else if (actorUser.role === 'nurse' && visit.status !== 'waiting') {
       await assertNurseCanManageVisit(client, actorUser, visitId);
     }
 
     const fromStatus = visit.status;
+    const legacyStatus = mapCloseOutcomeToLegacyStatus(outcome);
 
     // 1. Release bed assignment
     await client.query(
@@ -597,6 +701,19 @@ async function closeVisit(visitId, data, actorUser) {
        WHERE visit_id = $4 AND released_at IS NULL`,
       [actorUser?.id || null, releaseReason || null, outcome, visitId]
     );
+
+    const releasedBed = await client.query(
+      `SELECT bed_id FROM bed_assignments
+       WHERE visit_id = $1 AND released_at IS NOT NULL
+       ORDER BY released_at DESC LIMIT 1`,
+      [visitId],
+    );
+    if (releasedBed.rowCount > 0) {
+      await client.query(
+        `UPDATE beds SET operational_status = 'cleaning' WHERE id = $1`,
+        [releasedBed.rows[0].bed_id],
+      );
+    }
 
     // 2. End active consultation if open
     await client.query(
@@ -607,45 +724,62 @@ async function closeVisit(visitId, data, actorUser) {
     );
 
     // 3. Close visit
+    const v3Outcome =
+      outcome === 'left_without_seen' ? 'left_before_seen' : outcome;
+
     const updatedVisit = await client.query(
       `UPDATE visits 
-       SET status = $1, closed_at = NOW(), updated_at = NOW() 
-       WHERE id = $2
+       SET status = $1,
+           care_stage = 'completed',
+           outcome = $2,
+           patient_location = 'discharged',
+           closed_at = NOW(),
+           updated_at = NOW() 
+       WHERE id = $3
        RETURNING *`,
-      [outcome, visitId]
+      [legacyStatus, v3Outcome, visitId]
     );
 
-    // 4. Record audit event 'closed'
-    await client.query(
-      `INSERT INTO visit_events (
-        visit_id,
-        actor_user_id,
-        event_type,
-        from_status,
-        to_status,
-        metadata
-      ) VALUES ($1, $2, 'closed', $3, $4, $5)`,
-      [
-        visitId,
-        actorUser?.id || null,
-        fromStatus,
-        outcome,
-        JSON.stringify({ outcome, diagnosis: diagnosis || null, notes: notes || null }),
-      ]
-    );
-
-    return {
+    const result = {
       visitId,
-      status: outcome,
+      status: legacyStatus,
+      outcome: v3Outcome,
+      careStage: 'completed',
       closedAt: updatedVisit.rows[0].closed_at,
     };
+
+    await recordVisitEvent(client, {
+      visitId,
+      actorUserId: actorUser?.id || null,
+      actionContext,
+      eventType: 'closed',
+      fromStatus,
+      toStatus: legacyStatus,
+      metadata: { outcome, diagnosis: diagnosis || null, notes: notes || null },
+      actionResult: result,
+    });
+
+    logVisitAction({
+      action: 'close',
+      visitId,
+      actorUserId: actorUser?.id ?? null,
+      actorType: actionContext.actorType ?? 'user',
+      status: 'ok',
+    });
+
+    return result;
   });
 }
 
-async function returnVisit(visitId, data, actorUser) {
+async function returnVisit(visitId, data, actorUser, actionContext = {}) {
   const { reason } = data;
 
   return withTransaction(async (client) => {
+    const replay = await findIdempotentActionResult(client, actionContext.idempotencyKey);
+    if (replay) {
+      return replay;
+    }
+
     const visitRes = await client.query(
       'SELECT id, status FROM visits WHERE id = $1 FOR UPDATE',
       [visitId]
@@ -673,36 +807,46 @@ async function returnVisit(visitId, data, actorUser) {
 
     // 2. Update visit status to 'waiting'
     const updatedVisit = await client.query(
-      `UPDATE visits SET status = 'waiting', updated_at = NOW() WHERE id = $1 RETURNING *`,
+      `UPDATE visits
+       SET status = 'waiting',
+           care_stage = 'waiting_care',
+           patient_location = 'waiting_area',
+           updated_at = NOW()
+       WHERE id = $1 RETURNING *`,
       [visitId]
     );
 
-    // 3. Record audit event 'returned'
-    await client.query(
-      `INSERT INTO visit_events (
-        visit_id,
-        actor_user_id,
-        event_type,
-        from_status,
-        to_status,
-        metadata
-      ) VALUES ($1, $2, 'returned', 'placed', 'waiting', $3)`,
-      [
-        visitId,
-        actorUser?.id || null,
-        JSON.stringify({ reason: reason || 'Returned to waiting' }),
-      ]
-    );
-
-    return {
+    const result = {
       visitId,
       status: 'waiting',
+      careStage: 'waiting_care',
       returnedAt: updatedVisit.rows[0].updated_at,
     };
+
+    await recordVisitEvent(client, {
+      visitId,
+      actorUserId: actorUser?.id || null,
+      actionContext,
+      eventType: 'returned',
+      fromStatus: 'placed',
+      toStatus: 'waiting',
+      metadata: { reason: reason || 'Returned to waiting' },
+      actionResult: result,
+    });
+
+    logVisitAction({
+      action: 'return',
+      visitId,
+      actorUserId: actorUser?.id ?? null,
+      actorType: actionContext.actorType ?? 'user',
+      status: 'ok',
+    });
+
+    return result;
   });
 }
 
-async function updateVisitPriority(visitId, data, actorUser) {
+async function updateVisitPriority(visitId, data, actorUser, actionContext = {}) {
   const priority = Number(data?.priority);
   if (!Number.isInteger(priority) || priority < 1 || priority > 5) {
     throw { status: 400, message: 'La priorité doit être entre 1 (urgent) et 5 (non urgent).' };
@@ -711,8 +855,13 @@ async function updateVisitPriority(visitId, data, actorUser) {
   const note = data?.note != null ? String(data.note).trim() : '';
 
   return withTransaction(async (client) => {
+    const replay = await findIdempotentActionResult(client, actionContext.idempotencyKey);
+    if (replay) {
+      return replay;
+    }
+
     const visitRes = await client.query(
-      'SELECT id, status, priority FROM visits WHERE id = $1 FOR UPDATE',
+      'SELECT id, status, priority, care_stage FROM visits WHERE id = $1 FOR UPDATE',
       [visitId]
     );
 
@@ -721,48 +870,82 @@ async function updateVisitPriority(visitId, data, actorUser) {
     }
 
     const visit = visitRes.rows[0];
-    if (visit.status !== 'waiting') {
+    const careStage = visit.care_stage || 'triage_pending';
+    if (
+      visit.status !== 'waiting' ||
+      !['triage_pending', 'waiting_care', 'registered'].includes(careStage)
+    ) {
       throw {
         status: 400,
-        message: 'Le triage ne peut être ajusté que pour les patients en salle d’attente.',
+        message: 'Le triage ne peut être ajusté que pour les patients en attente de prise en charge.',
       };
     }
 
     const previousPriority = Number(visit.priority);
     if (previousPriority === priority && !note) {
-      return { visitId, priority, unchanged: true };
+      const unchanged = { visitId, priority, unchanged: true };
+      if (actionContext.idempotencyKey) {
+        await recordVisitEvent(client, {
+          visitId,
+          actorUserId: actorUser?.id || null,
+          actionContext,
+          eventType: 'triage_validated',
+          fromStatus: 'waiting',
+          toStatus: 'waiting',
+          metadata: { previousPriority, priority, note: null, unchanged: true },
+          actionResult: unchanged,
+        });
+      }
+      return unchanged;
     }
 
     await client.query(
-      `UPDATE visits SET priority = $1, updated_at = NOW() WHERE id = $2`,
+      `UPDATE visits
+       SET priority = $1,
+           care_stage = CASE WHEN care_stage IN ('registered', 'triage_pending') THEN 'waiting_care' ELSE care_stage END,
+           updated_at = NOW()
+       WHERE id = $2`,
       [priority, visitId]
     );
 
     await client.query(
-      `INSERT INTO visit_events (
-        visit_id,
-        actor_user_id,
-        event_type,
-        from_status,
-        to_status,
-        metadata
-      ) VALUES ($1, $2, 'triage_validated', 'waiting', 'waiting', $3)`,
-      [
-        visitId,
-        actorUser?.id || null,
-        JSON.stringify({
-          previousPriority,
-          priority,
-          note: note || null,
-        }),
-      ]
+      `INSERT INTO triage_assessments (
+        visit_id, priority, assessment_type, clinical_note, performed_by, performed_at
+      ) VALUES ($1, $2, 'initial', $3, $4, NOW())`,
+      [visitId, priority, note || null, actorUser?.id || null],
     );
 
-    return {
+    const result = {
       visitId,
       priority,
       previousPriority,
+      careStage: 'waiting_care',
     };
+
+    await recordVisitEvent(client, {
+      visitId,
+      actorUserId: actorUser?.id || null,
+      actionContext,
+      eventType: 'triage_validated',
+      fromStatus: 'waiting',
+      toStatus: 'waiting',
+      metadata: {
+        previousPriority,
+        priority,
+        note: note || null,
+      },
+      actionResult: result,
+    });
+
+    logVisitAction({
+      action: 'triage',
+      visitId,
+      actorUserId: actorUser?.id ?? null,
+      actorType: actionContext.actorType ?? 'user',
+      status: 'ok',
+    });
+
+    return result;
   });
 }
 
@@ -773,6 +956,13 @@ async function getVisitDetails(visitId) {
       v.id AS visit_id,
       v.public_code,
       v.status,
+      v.care_stage,
+      v.critical_flag,
+      v.current_orientation,
+      v.outcome,
+      v.patient_location,
+      v.care_started_at,
+      v.disposition_decided_at,
       v.priority,
       v.chief_complaint,
       v.arrival_mode,
@@ -805,6 +995,7 @@ async function getVisitDetails(visitId) {
     `SELECT 
       b.id AS bed_id,
       b.label AS bed_label,
+      b.operational_status AS bed_operational_status,
       r.id AS room_id,
       r.name AS room_name,
       z.id AS zone_id,
@@ -853,6 +1044,8 @@ async function getVisitDetails(visitId) {
       e.to_status,
       e.metadata,
       e.created_at,
+      e.actor_type,
+      e.agent_run_id,
       u.first_name AS actor_first_name,
       u.last_name AS actor_last_name,
       u.role AS actor_role
@@ -867,6 +1060,13 @@ async function getVisitDetails(visitId) {
     visitId: v.visit_id,
     publicCode: v.public_code,
     status: v.status,
+    careStage: v.care_stage,
+    criticalFlag: Boolean(v.critical_flag),
+    orientation: v.current_orientation,
+    outcome: v.outcome,
+    patientLocation: v.patient_location,
+    careStartedAt: v.care_started_at,
+    dispositionDecidedAt: v.disposition_decided_at,
     priority: v.priority,
     chiefComplaint: v.chief_complaint,
     arrivalMode: v.arrival_mode,
@@ -888,6 +1088,7 @@ async function getVisitDetails(visitId) {
       ? {
           bedId: bedRes.rows[0].bed_id,
           bedLabel: bedRes.rows[0].bed_label,
+          operationalStatus: bedRes.rows[0].bed_operational_status,
           roomId: bedRes.rows[0].room_id,
           roomName: bedRes.rows[0].room_name,
           zoneId: bedRes.rows[0].zone_id,
@@ -924,6 +1125,8 @@ async function getVisitDetails(visitId) {
       createdAt: e.created_at,
       actorName: e.actor_first_name ? `${e.actor_first_name} ${e.actor_last_name}` : 'System',
       actorRole: e.actor_role,
+      actorType: e.actor_type,
+      agentRunId: e.agent_run_id,
     })),
   };
 }

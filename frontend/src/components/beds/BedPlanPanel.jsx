@@ -27,7 +27,21 @@ function occupancyTone(ratio) {
 }
 
 function bedStatusText(bed) {
-  if (!bed.occupied) return 'Libre'
+  if (!bed.occupied) {
+    if (bed.operationalStatus && bed.operationalStatus !== 'ready') {
+      const labels = {
+        cleaning: 'Nettoyage',
+        maintenance: 'Maintenance',
+        blocked: 'Bloqué',
+        out_of_service: 'Hors service',
+      }
+      return labels[bed.operationalStatus] || bed.operationalStatus
+    }
+    return 'Libre'
+  }
+  if (bed.careStage === 'in_care') return 'Soins'
+  if (bed.careStage === 'in_observation') return 'Observation'
+  if (bed.careStage === 'disposition_pending') return 'Disposition'
   if (bed.visitStatus === 'in_treatment') return 'Consultation'
   if (bed.visitStatus === 'placed') return 'Au lit'
   return statusLabel(bed.visitStatus) || 'Occupé'

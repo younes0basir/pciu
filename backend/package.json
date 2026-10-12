@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "seed": "node src/scripts/seed.js"
+    "seed": "node src/scripts/seed.js",
+    "migrate:phase-a": "node src/scripts/applyPhaseAFoundationMigration.js",
+    "migrate:v3": "node src/scripts/applyV3Migration.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

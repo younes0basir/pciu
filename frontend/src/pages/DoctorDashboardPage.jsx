@@ -50,6 +50,10 @@ export default function DoctorDashboardPage() {
     handleOpenConsultation,
     handleSaveConsultation,
     handleCloseVisit,
+    handleStartObservation,
+    handleEndObservation,
+    handleCompleteDeparture,
+    refreshDrawerDetail,
     logout,
   } = useClinicianDashboard(DOCTOR_ROLE)
 
@@ -235,6 +239,14 @@ export default function DoctorDashboardPage() {
           onOpenConsultation={handleOpenConsultation}
           onSaveConsultation={handleSaveConsultation}
           onCloseVisit={handleCloseVisit}
+          allowCareFlow
+          allowObservation
+          allowCompleteDeparture
+          onStartObservation={handleStartObservation}
+          onEndObservation={handleEndObservation}
+          onCompleteDeparture={handleCompleteDeparture}
+          allowExamActions
+          onRecordMutated={refreshDrawerDetail}
         />
     </DashboardShell>
   )

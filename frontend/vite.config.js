@@ -19,6 +19,9 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:3001',
         changeOrigin: true,
+        // Demo bulk writes to Neon can exceed the default ~30s proxy limit (502).
+        timeout: 120_000,
+        proxyTimeout: 120_000,
       },
     },
   },

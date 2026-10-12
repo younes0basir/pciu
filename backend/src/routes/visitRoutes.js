@@ -11,11 +11,13 @@ const {
   getVisitDetails,
 } = require('../services/visitService');
 const { authenticateJwt, requireCapability } = require('../middleware/auth');
+const { attachActorContext, getActionContext } = require('../middleware/actorContext');
 
 const router = express.Router();
 
 // Apply JWT authentication to all visit routes
 router.use(authenticateJwt);
+router.use(attachActorContext);
 
 // GET /api/visits/:id - Patient Sheet details & event timeline
 router.get('/:id', async (req, res, next) => {
@@ -31,7 +33,7 @@ router.get('/:id', async (req, res, next) => {
 // Capability: 'register' (receptionist)
 router.post('/register', requireCapability('register'), async (req, res, next) => {
   try {
-    const result = await registerVisit(req.body, req.user);
+    const result = await registerVisit(req.body, req.user, getActionContext(req));
     res.status(201).json(result);
   } catch (error) {
     next(error);
@@ -42,7 +44,7 @@ router.post('/register', requireCapability('register'), async (req, res, next) =
 // Capability: 'call' (receptionist)
 router.post('/:id/call', requireCapability('call'), async (req, res, next) => {
   try {
-    const result = await callVisit(req.params.id, req.user);
+    const result = await callVisit(req.params.id, req.user, getActionContext(req));
     res.json(result);
   } catch (error) {
     next(error);
@@ -54,7 +56,7 @@ router.post('/:id/call', requireCapability('call'), async (req, res, next) => {
 router.post('/:id/place', requireCapability('place'), async (req, res, next) => {
   try {
     const { bedId } = req.body;
-    const result = await placeVisit(req.params.id, bedId, req.user);
+    const result = await placeVisit(req.params.id, bedId, req.user, getActionContext(req));
     res.json(result);
   } catch (error) {
     next(error);
@@ -65,7 +67,12 @@ router.post('/:id/place', requireCapability('place'), async (req, res, next) => 
 // Capability: 'start' (doctor, nurse for room doctor)
 router.post('/:id/start', requireCapability('start'), async (req, res, next) => {
   try {
-    const result = await startConsultation(req.params.id, req.user, req.body || {});
+    const result = await startConsultation(
+      req.params.id,
+      req.user,
+      req.body || {},
+      getActionContext(req),
+    );
     res.json(result);
   } catch (error) {
     next(error);
@@ -75,7 +82,12 @@ router.post('/:id/start', requireCapability('start'), async (req, res, next) => 
 // Nurse validates / adjusts waiting priority (optional triage step).
 router.patch('/:id/priority', requireCapability('triage'), async (req, res, next) => {
   try {
-    const result = await updateVisitPriority(req.params.id, req.body || {}, req.user);
+    const result = await updateVisitPriority(
+      req.params.id,
+      req.body || {},
+      req.user,
+      getActionContext(req),
+    );
     res.json(result);
   } catch (error) {
     next(error);
@@ -85,7 +97,12 @@ router.patch('/:id/priority', requireCapability('triage'), async (req, res, next
 // Fill or reattribute an open consultation (chief: any doctor; nurse: room doctor).
 router.patch('/:id/consultation', requireCapability('fill'), async (req, res, next) => {
   try {
-    const result = await updateConsultation(req.params.id, req.body || {}, req.user);
+    const result = await updateConsultation(
+      req.params.id,
+      req.body || {},
+      req.user,
+      getActionContext(req),
+    );
     res.json(result);
   } catch (error) {
     next(error);
@@ -96,7 +113,7 @@ router.patch('/:id/consultation', requireCapability('fill'), async (req, res, ne
 // Capability: 'close' (doctor, nurse in room, chief)
 router.post('/:id/close', requireCapability('close'), async (req, res, next) => {
   try {
-    const result = await closeVisit(req.params.id, req.body, req.user);
+    const result = await closeVisit(req.params.id, req.body, req.user, getActionContext(req));
     res.json(result);
   } catch (error) {
     next(error);
@@ -107,7 +124,7 @@ router.post('/:id/close', requireCapability('close'), async (req, res, next) => 
 // Capability: 'return' (nurse, chief)
 router.post('/:id/return', requireCapability('return'), async (req, res, next) => {
   try {
-    const result = await returnVisit(req.params.id, req.body, req.user);
+    const result = await returnVisit(req.params.id, req.body, req.user, getActionContext(req));
     res.json(result);
   } catch (error) {
     next(error);

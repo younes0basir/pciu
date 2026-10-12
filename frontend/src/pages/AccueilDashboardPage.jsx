@@ -11,8 +11,12 @@ import { DashboardMain } from '@/components/layout/DashboardMain.jsx'
 import { DashboardPageIntro } from '@/components/layout/DashboardPageIntro.jsx'
 import { DashboardShell } from '@/components/layout/DashboardShell.jsx'
 import { dashboardInputClass, dashboardSelectClass } from '@/components/layout/dashboardStyles.js'
-import { registerVisit } from '@/api/visits.js'
+import { callVisit, fetchVisitDetails, registerVisit } from '@/api/visits.js'
+import { setVisitCritical } from '@/api/careFlow.js'
+import { AccueilCarePathBanner } from '@/components/accueil/AccueilCarePathBanner.jsx'
 import { AccueilKpiBar } from '@/components/accueil/AccueilKpiBar.jsx'
+import { ChiefVisitDrawer } from '@/components/chief/ChiefVisitDrawer.jsx'
+import { useVisitEventStream } from '@/hooks/useVisitEventStream.js'
 import { AccueilPipelineColumn } from '@/components/accueil/AccueilPipelineColumn.jsx'
 import { AccueilQueueList } from '@/components/accueil/AccueilQueueList.jsx'
 import {
@@ -39,6 +43,10 @@ export default function AccueilDashboardPage() {
   const [priorityFilter, setPriorityFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
   const [registerOpen, setRegisterOpen] = useState(false)
+  const [drawerVisitId, setDrawerVisitId] = useState(null)
+  const [drawerDetail, setDrawerDetail] = useState(null)
+  const [drawerLoading, setDrawerLoading] = useState(false)
+  const [actionBusy, setActionBusy] = useState(false)
 
   const priorityMax = priorityFilter === 'all' ? null : Number(priorityFilter)
 
@@ -79,6 +87,30 @@ export default function AccueilDashboardPage() {
     return () => clearInterval(id)
   }, [auth?.user?.role, loadBoard])
 
+  useVisitEventStream(() => loadBoard(true), auth?.user?.role === 'receptionist')
+
+  useEffect(() => {
+    if (!drawerVisitId) {
+      setDrawerDetail(null)
+      return
+    }
+    let cancelled = false
+    setDrawerLoading(true)
+    fetchVisitDetails(drawerVisitId)
+      .then((data) => {
+        if (!cancelled) setDrawerDetail(data)
+      })
+      .catch(() => {
+        if (!cancelled) setDrawerDetail(null)
+      })
+      .finally(() => {
+        if (!cancelled) setDrawerLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [drawerVisitId])
+
   useEffect(() => {
     document.title = 'Accueil · PICU CARE'
   }, [])
@@ -103,6 +135,23 @@ export default function AccueilDashboardPage() {
     return { uncalled, called }
   }, [filteredWaiting])
 
+  async function runVisitMutation(fn) {
+    setActionBusy(true)
+    setError(null)
+    try {
+      await fn()
+      await loadBoard(true)
+      if (drawerVisitId) {
+        const detail = await fetchVisitDetails(drawerVisitId)
+        setDrawerDetail(detail)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Action impossible')
+    } finally {
+      setActionBusy(false)
+    }
+  }
+
   async function handleRegisterPatient(payload) {
     const result = await registerVisit(payload)
     await loadBoard(true)
@@ -118,7 +167,7 @@ export default function AccueilDashboardPage() {
     <DashboardShell role={ACCUEIL_ROLE}>
         <RoleDashboardHeader
           role={ACCUEIL_ROLE}
-          subtitle="Enregistrement et file d’attente · actualisation 30 s"
+          subtitle="Enregistrement et file · flux temps réel (secours 30 s)"
           backendHealth={backendHealth}
           refreshing={refreshing}
           onRefresh={() => loadBoard(true)}
@@ -180,29 +229,33 @@ export default function AccueilDashboardPage() {
           <p className="py-20 text-center text-sm font-semibold text-slate-500">Chargement du tableau…</p>
         ) : (
           <>
+            <AccueilCarePathBanner phase="accueil" calledCount={stats.called ?? 0} />
+
             <AccueilKpiBar stats={stats} />
 
             <div>
               <h2 className="mb-2 text-xs font-extrabold uppercase tracking-wide text-slate-500">
-                File d’attente
+                Accueil → infirmier
               </h2>
               <div className="grid gap-3 lg:grid-cols-2">
                 <AccueilPipelineColumn
-                  title="En attente"
-                  subtitle="Jamais appelé"
+                  title="À appeler"
+                  subtitle="Enregistrés · action accueil : ouvrir la fiche et appeler"
                   visits={pipeline.uncalled}
                   tone="slate"
+                  onSelectVisit={setDrawerVisitId}
                 />
                 <AccueilPipelineColumn
-                  title="En attente"
-                  subtitle="Appelé, pas au lit"
+                  title="Chez l’infirmier"
+                  subtitle="Appelés · en attente de triage et placement au lit"
                   visits={pipeline.called}
                   tone="amber"
+                  onSelectVisit={setDrawerVisitId}
                 />
               </div>
             </div>
 
-            <AccueilQueueList visits={filteredWaiting} />
+            <AccueilQueueList visits={filteredWaiting} onSelectVisit={setDrawerVisitId} />
           </>
         )}
         </DashboardMain>
@@ -212,6 +265,28 @@ export default function AccueilDashboardPage() {
           role={ACCUEIL_ROLE}
           onClose={() => setRegisterOpen(false)}
           onSubmit={handleRegisterPatient}
+        />
+
+        <ChiefVisitDrawer
+          open={Boolean(drawerVisitId)}
+          loading={drawerLoading}
+          detail={drawerDetail}
+          actionBusy={actionBusy}
+          onClose={() => setDrawerVisitId(null)}
+          clinicians={[]}
+          currentUserId={auth?.user?.id}
+          allowCall
+          allowPlace={false}
+          allowReturn={false}
+          allowClose={false}
+          allowConsultation={false}
+          allowTriage={false}
+          onCall={() => runVisitMutation(() => callVisit(drawerVisitId))}
+          allowCareFlow
+          allowCritical
+          onSetCritical={(critical) =>
+            runVisitMutation(() => setVisitCritical(drawerVisitId, critical))
+          }
         />
     </DashboardShell>
   )

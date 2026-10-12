@@ -1,5 +1,7 @@
 # PICU — Contexte Global de l’Application
 
+> **Implémentation actuelle (oct. 2026)** — Le dépôt suit surtout `PLAN.md` et `docs/ROADMAP-AGENTS.md` : tableaux **par rôle**, machine à états via `visitService`, audit `visit_events`, **SSE** (`GET /api/events/stream`) pour le temps réel, pas de Socket.IO ni de triage IA en production. La vision ci‑dessous mélange cible produit et éléments legacy ; voir la roadmap agents pour le plan d’évolution.
+
 ## 1) Vision produit
 
 **PICU** (Plateforme Intelligente de Coordination des Urgences) digitalise le flux des urgences:

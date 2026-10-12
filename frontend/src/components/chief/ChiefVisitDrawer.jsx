@@ -3,7 +3,14 @@ import { Loader2, X } from 'lucide-react'
 import { fetchAvailableBeds } from '@/api/visits.js'
 import { ChiefConsultationPanel } from '@/components/chief/ChiefConsultationPanel.jsx'
 import { NurseTriagePanel } from '@/components/nurse/NurseTriagePanel.jsx'
-import { EVENT_LABELS, OUTCOME_LABELS, clinicianLabel, priorityBadgeClass, statusLabel } from '@/components/chief/chiefUtils.js'
+import {
+  CARE_STAGE_LABELS,
+  OUTCOME_LABELS,
+  priorityBadgeClass,
+  statusLabel,
+} from '@/components/chief/chiefUtils.js'
+import { VisitCareFlowPanel } from '@/components/workflow/VisitCareFlowPanel.jsx'
+import { VisitRecordTabs } from '@/components/workflow/VisitRecordTabs.jsx'
 
 const ACTIVE_STATUSES = ['waiting', 'placed', 'in_treatment']
 
@@ -23,6 +30,16 @@ export function ChiefVisitDrawer({
   allowClose = true,
   allowConsultation = true,
   allowTriage = false,
+  allowCareFlow = false,
+  allowCritical = false,
+  allowTransfer = false,
+  allowObservation = false,
+  allowCompleteDeparture = false,
+  onSetCritical,
+  onTransfer,
+  onStartObservation,
+  onEndObservation,
+  onCompleteDeparture,
   onCall,
   onPlace,
   onOpenConsultation,
@@ -30,6 +47,8 @@ export function ChiefVisitDrawer({
   onReturn,
   onCloseVisit,
   onValidateTriage,
+  allowExamActions = false,
+  onRecordMutated,
 }) {
   const [beds, setBeds] = useState([])
   const [bedsLoading, setBedsLoading] = useState(false)
@@ -128,6 +147,16 @@ export function ChiefVisitDrawer({
                   <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-700">
                     {statusLabel(detail.status)}
                   </span>
+                  {detail.careStage ? (
+                    <span className="rounded-md bg-violet-100 px-2 py-0.5 text-xs font-bold text-violet-800">
+                      {CARE_STAGE_LABELS[detail.careStage] || detail.careStage}
+                    </span>
+                  ) : null}
+                  {detail.criticalFlag ? (
+                    <span className="rounded-md bg-rose-100 px-2 py-0.5 text-xs font-bold text-rose-800">
+                      Critique
+                    </span>
+                  ) : null}
                 </div>
                 <h2 className="mt-2 text-lg font-extrabold text-slate-900">{detail.patient?.fullName}</h2>
                 {detail.patient?.nationalId ? (
@@ -136,47 +165,30 @@ export function ChiefVisitDrawer({
                 <p className="mt-2 text-sm font-medium text-slate-700">{detail.chiefComplaint}</p>
               </div>
 
-              <dl className="grid grid-cols-2 gap-3 text-xs">
-                <div>
-                  <dt className="font-bold text-slate-500">Arrivée</dt>
-                  <dd className="font-semibold text-slate-800">
-                    {detail.arrivedAt
-                      ? new Date(detail.arrivedAt).toLocaleString('fr-FR')
-                      : '—'}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="font-bold text-slate-500">Appels</dt>
-                  <dd className="font-semibold text-slate-800">{detail.callCount ?? 0}</dd>
-                </div>
-                {detail.activeBed ? (
-                  <div className="col-span-2">
-                    <dt className="font-bold text-slate-500">Lit</dt>
-                    <dd className="font-semibold text-sky-800">
-                      {detail.activeBed.zoneName} · {detail.activeBed.roomName} ·{' '}
-                      {detail.activeBed.bedLabel}
-                    </dd>
-                  </div>
-                ) : null}
-                {detail.consultation ? (
-                  <div className="col-span-2">
-                    <dt className="font-bold text-slate-500">Médecin de la consultation</dt>
-                    <dd className="font-semibold text-slate-800">
-                      {clinicianLabel({
-                        firstName: detail.consultation.doctorName,
-                        role: detail.consultation.doctorRole,
-                      })}
-                    </dd>
-                  </div>
-                ) : null}
-              </dl>
-
               {allowTriage && detail.status === 'waiting' ? (
                 <NurseTriagePanel detail={detail} busy={actionBusy} onSave={onValidateTriage} />
               ) : null}
 
+              {allowCareFlow ? (
+                <VisitCareFlowPanel
+                  detail={detail}
+                  actionBusy={actionBusy}
+                  allowCritical={allowCritical}
+                  allowTransfer={allowTransfer}
+                  allowObservation={allowObservation}
+                  allowCompleteDeparture={allowCompleteDeparture}
+                  onSetCritical={onSetCritical}
+                  onTransfer={onTransfer}
+                  onStartObservation={onStartObservation}
+                  onEndObservation={onEndObservation}
+                  onCompleteDeparture={onCompleteDeparture}
+                />
+              ) : null}
+
               {allowConsultation &&
-              (detail.status === 'placed' || detail.status === 'in_treatment') ? (
+              (detail.status === 'placed' ||
+                detail.status === 'in_treatment' ||
+                (detail.status === 'waiting' && detail.criticalFlag)) ? (
                 <ChiefConsultationPanel
                   detail={detail}
                   clinicians={clinicians}
@@ -266,7 +278,9 @@ export function ChiefVisitDrawer({
                   ) : null}
 
                   {allowClose &&
-                  (detail.status === 'placed' || detail.status === 'in_treatment') ? (
+                  (detail.status === 'waiting' ||
+                    detail.status === 'placed' ||
+                    detail.status === 'in_treatment') ? (
                     <div className="space-y-2 border-t border-amber-200/80 pt-2">
                       {!showCloseForm ? (
                         <button
@@ -336,25 +350,12 @@ export function ChiefVisitDrawer({
                 </div>
               ) : null}
 
-              <div>
-                <h3 className="text-xs font-extrabold uppercase tracking-wide text-slate-500">
-                  Chronologie
-                </h3>
-                <ol className="mt-3 space-y-3 border-l-2 border-sky-200 pl-4">
-                  {detail.timeline?.map((ev) => (
-                    <li key={ev.id} className="relative">
-                      <span className="absolute -left-[1.35rem] top-1 size-2.5 rounded-full bg-sky-500 ring-2 ring-white" />
-                      <p className="text-sm font-extrabold text-slate-900">
-                        {EVENT_LABELS[ev.eventType] || ev.eventType}
-                      </p>
-                      <p className="text-[11px] font-semibold text-slate-500">
-                        {new Date(ev.createdAt).toLocaleString('fr-FR')}
-                        {ev.actorName ? ` · ${ev.actorName}` : ''}
-                      </p>
-                    </li>
-                  ))}
-                </ol>
-              </div>
+              <VisitRecordTabs
+                detail={detail}
+                allowExamActions={allowExamActions}
+                actionBusy={actionBusy}
+                onAfterMutation={onRecordMutated}
+              />
             </div>
           ) : (
             <p className="text-sm font-semibold text-rose-600">Impossible de charger la visite.</p>

@@ -1,7 +1,18 @@
 export const OUTCOME_LABELS = {
   discharged: 'Sortie',
+  admitted: 'Hospitalisation (boarding)',
   transferred: 'Transfert',
   left_without_seen: 'Parti sans être vu',
+}
+
+export const CARE_STAGE_LABELS = {
+  registered: 'Enregistré',
+  triage_pending: 'Triage en attente',
+  waiting_care: 'Attente de soins',
+  in_care: 'En soins',
+  in_observation: 'Observation',
+  disposition_pending: 'Disposition / boarding',
+  completed: 'Terminé',
 }
 
 export const EVENT_LABELS = {
@@ -13,6 +24,18 @@ export const EVENT_LABELS = {
   closed: 'Clôture',
   returned: 'Retour salle d’attente',
   triage_validated: 'Triage validé',
+  triage_completed: 'Triage effectué',
+  triage_reassessed: 'Réévaluation',
+  priority_changed: 'Priorité modifiée',
+  critical_flag_set: 'Signal critique',
+  observation_started: 'Observation démarrée',
+  observation_ended: 'Observation terminée',
+  resource_transferred: 'Transfert de ressource',
+  disposition_decided: 'Décision de disposition',
+  exam_requested: 'Examen demandé',
+  exam_completed: 'Résultat d’examen',
+  task_created: 'Tâche créée',
+  task_completed: 'Tâche terminée',
 }
 
 export function personInitials(person) {

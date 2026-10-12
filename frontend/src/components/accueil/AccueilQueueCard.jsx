@@ -12,11 +12,18 @@ export function AccueilQueueCard({ visit, onSelect }) {
     <>
       <div className="flex items-start justify-between gap-2">
         <span className="font-mono text-xs font-bold text-slate-600">{visit.publicCode}</span>
-        <span
-          className={`rounded-md px-1.5 py-0.5 text-[10px] font-extrabold ring-1 ring-inset ${priorityBadgeClass(visit.priority)}`}
-        >
-          P{visit.priority}
-        </span>
+        <div className="flex flex-wrap items-center justify-end gap-1">
+          {visit.criticalFlag ? (
+            <span className="rounded-md bg-rose-100 px-1.5 py-0.5 text-[10px] font-extrabold text-rose-800">
+              Critique
+            </span>
+          ) : null}
+          <span
+            className={`rounded-md px-1.5 py-0.5 text-[10px] font-extrabold ring-1 ring-inset ${priorityBadgeClass(visit.priority)}`}
+          >
+            P{visit.priority}
+          </span>
+        </div>
       </div>
       <p className="mt-1 text-sm font-extrabold text-slate-900">{visit.patientName}</p>
       {complaint ? (

@@ -38,6 +38,16 @@ import {
   OUTCOME_LABELS,
   STUCK_FILTER_OPTIONS,
 } from '@/components/chief/chiefUtils.js'
+import { useVisitEventStream } from '@/hooks/useVisitEventStream.js'
+import { WorklistsPanel } from '@/components/workflow/WorklistsPanel.jsx'
+import { CapacityBanner } from '@/components/workflow/CapacityBanner.jsx'
+import {
+  completeVisitDeparture,
+  endObservation,
+  setVisitCritical,
+  startObservation,
+  transferVisitBed,
+} from '@/api/careFlow.js'
 
 const REFRESH_MS = 30_000
 const CHIEF_ROLE = 'chief'
@@ -117,6 +127,8 @@ export default function ChiefDashboardPage() {
     const id = setInterval(() => loadOverview(true), REFRESH_MS)
     return () => clearInterval(id)
   }, [auth?.user?.role, loadOverview])
+
+  useVisitEventStream(() => loadOverview(true), auth?.user?.role === 'chief')
 
   useEffect(() => {
     if (!drawerVisitId) {
@@ -334,6 +346,10 @@ export default function ChiefDashboardPage() {
           <>
             <ChiefKpiBar stats={overview?.stats} formatDuration={formatDuration} />
 
+            <CapacityBanner />
+
+            <WorklistsPanel onSelectVisit={(id) => setDrawerVisitId(id)} />
+
             <ChiefStuckAlerts
               alerts={filtered?.stuckAlerts ?? []}
               sla={overview?.sla}
@@ -437,7 +453,29 @@ export default function ChiefDashboardPage() {
           runVisitMutation(() => saveVisitConsultation(drawerVisitId, payload))
         }
         onReturn={(reason) => runVisitMutation(() => returnVisitToWaiting(drawerVisitId, reason))}
-        onCloseVisit={(payload) => runVisitMutation(() => closeVisit(drawerVisitId, payload))}
+        onCloseVisit={async (payload) => {
+          await runVisitMutation(() => closeVisit(drawerVisitId, payload))
+          if (payload?.outcome !== 'admitted') {
+            setDrawerVisitId(null)
+          }
+        }}
+        allowCareFlow
+        allowCritical
+        allowTransfer
+        allowObservation
+        allowCompleteDeparture
+        onSetCritical={(critical) =>
+          runVisitMutation(() => setVisitCritical(drawerVisitId, critical))
+        }
+        onTransfer={(bedId) => runVisitMutation(() => transferVisitBed(drawerVisitId, bedId))}
+        onStartObservation={() => runVisitMutation(() => startObservation(drawerVisitId))}
+        onEndObservation={() => runVisitMutation(() => endObservation(drawerVisitId))}
+        onCompleteDeparture={async () => {
+          await runVisitMutation(() => completeVisitDeparture(drawerVisitId))
+          setDrawerVisitId(null)
+        }}
+        allowExamActions
+        onRecordMutated={reloadVisitDetail}
       />
     </DashboardShell>
   )

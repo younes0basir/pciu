@@ -21,8 +21,11 @@ import {
   filterAccueilWaiting,
 } from '@/components/accueil/accueilUtils.js'
 import { NurseBedMapPanel } from '@/components/nurse/NurseBedMapPanel.jsx'
+import { AccueilCarePathBanner } from '@/components/accueil/AccueilCarePathBanner.jsx'
 import { NurseQuickPlaceModal } from '@/components/nurse/NurseQuickPlaceModal.jsx'
 import { useClinicianDashboard } from '@/hooks/useClinicianDashboard.js'
+import { WorklistsPanel } from '@/components/workflow/WorklistsPanel.jsx'
+import { setBedOperationalStatus } from '@/api/careFlow.js'
 
 const NURSE_ROLE = 'nurse'
 
@@ -55,6 +58,12 @@ export default function NurseDashboardPage() {
     handleSaveConsultation,
     handleReturn,
     handleCloseVisit,
+    handleSetCritical,
+    handleTransfer,
+    handleStartObservation,
+    handleEndObservation,
+    handleCompleteDeparture,
+    refreshDrawerDetail,
     logout,
   } = useClinicianDashboard(NURSE_ROLE)
 
@@ -95,6 +104,17 @@ export default function NurseDashboardPage() {
     await handlePlaceVisit(visitId, bedId)
     setQuickPlaceBed(null)
     setNotice('Patient placé au lit avec succès.')
+  }
+
+  async function handleMarkBedReady(bed) {
+    if (!bed?.bedId) return
+    try {
+      await setBedOperationalStatus(bed.bedId, 'ready')
+      await loadWorkspace(true)
+      setNotice(`${bed.bedLabel} est de nouveau prêt.`)
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : 'Impossible de valider le lit.')
+    }
   }
 
   return (
@@ -166,6 +186,10 @@ export default function NurseDashboardPage() {
                   }}
                   onSelectFree={(bed) => {
                     setNotice(null)
+                    if (bed.operationalStatus && bed.operationalStatus !== 'ready') {
+                      void handleMarkBedReady(bed)
+                      return
+                    }
                     setQuickPlaceBed(bed)
                   }}
                 />
@@ -173,6 +197,16 @@ export default function NurseDashboardPage() {
 
               {activeTab === 'queue' ? (
                 <div className="space-y-5">
+                  <WorklistsPanel
+                    onSelectVisit={(visitId) => {
+                      setNotice(null)
+                      setDrawerVisitId(visitId)
+                    }}
+                  />
+                  <AccueilCarePathBanner
+                    phase="nurse"
+                    calledCount={queueStats.called ?? 0}
+                  />
                   <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                     <div className="relative flex-1 sm:max-w-xs">
                       <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
@@ -265,6 +299,18 @@ export default function NurseDashboardPage() {
           onReturn={handleReturn}
           onCloseVisit={handleCloseVisit}
           onValidateTriage={handleValidateTriage}
+          allowCareFlow
+          allowCritical
+          allowTransfer
+          allowObservation
+          allowCompleteDeparture
+          onSetCritical={handleSetCritical}
+          onTransfer={handleTransfer}
+          onStartObservation={handleStartObservation}
+          onEndObservation={handleEndObservation}
+          onCompleteDeparture={handleCompleteDeparture}
+          allowExamActions
+          onRecordMutated={refreshDrawerDetail}
         />
 
         <NurseQuickPlaceModal

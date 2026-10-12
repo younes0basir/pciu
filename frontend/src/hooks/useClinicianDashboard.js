@@ -13,6 +13,14 @@ import {
   startVisitConsultation,
   updateVisitPriority,
 } from '@/api/visits.js'
+import {
+  completeVisitDeparture,
+  endObservation,
+  setVisitCritical,
+  startObservation,
+  transferVisitBed,
+} from '@/api/careFlow.js'
+import { useVisitEventStream } from '@/hooks/useVisitEventStream.js'
 
 const REFRESH_MS = 30_000
 
@@ -68,6 +76,8 @@ export function useClinicianDashboard(expectedRole) {
     const id = setInterval(() => loadWorkspace(true), REFRESH_MS)
     return () => clearInterval(id)
   }, [auth.user?.role, expectedRole, loadWorkspace])
+
+  useVisitEventStream(() => loadWorkspace(true), auth.user?.role === expectedRole)
 
   useEffect(() => {
     if (!drawerVisitId) {
@@ -186,6 +196,66 @@ export function useClinicianDashboard(expectedRole) {
     setActionBusy(true)
     try {
       await closeVisit(drawerVisitId, payload)
+      if (payload?.outcome !== 'admitted') {
+        setDrawerVisitId(null)
+        await loadWorkspace(true)
+      } else {
+        await afterAction()
+      }
+    } finally {
+      setActionBusy(false)
+    }
+  }
+
+  async function handleSetCritical(critical) {
+    if (!drawerVisitId) return
+    setActionBusy(true)
+    try {
+      await setVisitCritical(drawerVisitId, critical)
+      await afterAction()
+    } finally {
+      setActionBusy(false)
+    }
+  }
+
+  async function handleTransfer(bedId) {
+    if (!drawerVisitId || !bedId) return
+    setActionBusy(true)
+    try {
+      await transferVisitBed(drawerVisitId, bedId)
+      await afterAction()
+    } finally {
+      setActionBusy(false)
+    }
+  }
+
+  async function handleStartObservation() {
+    if (!drawerVisitId) return
+    setActionBusy(true)
+    try {
+      await startObservation(drawerVisitId)
+      await afterAction()
+    } finally {
+      setActionBusy(false)
+    }
+  }
+
+  async function handleEndObservation() {
+    if (!drawerVisitId) return
+    setActionBusy(true)
+    try {
+      await endObservation(drawerVisitId)
+      await afterAction()
+    } finally {
+      setActionBusy(false)
+    }
+  }
+
+  async function handleCompleteDeparture() {
+    if (!drawerVisitId) return
+    setActionBusy(true)
+    try {
+      await completeVisitDeparture(drawerVisitId)
       setDrawerVisitId(null)
       await loadWorkspace(true)
     } finally {
@@ -215,6 +285,12 @@ export function useClinicianDashboard(expectedRole) {
     handleSaveConsultation,
     handleReturn,
     handleCloseVisit,
+    handleSetCritical,
+    handleTransfer,
+    handleStartObservation,
+    handleEndObservation,
+    handleCompleteDeparture,
+    refreshDrawerDetail: () => setDetailTick((t) => t + 1),
     logout: () => {
       void logout()
       navigate('/login')

@@ -1,8 +1,8 @@
 const ROLE_CAPABILITIES = {
-  receptionist: ['register', 'call'],
-  nurse: ['place', 'return', 'start', 'fill', 'close', 'triage'],
+  receptionist: ['register', 'call', 'critical'],
+  nurse: ['place', 'return', 'start', 'fill', 'close', 'triage', 'critical'],
   doctor: ['start', 'close', 'fill'],
-  chief: ['register', 'call', 'place', 'start', 'return', 'close', 'fill'],
+  chief: ['register', 'call', 'place', 'start', 'return', 'close', 'fill', 'critical'],
   admin: ['manage_users'],
 };
 

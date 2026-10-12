@@ -42,6 +42,7 @@ import { EditUserModal } from '@/components/admin/EditUserModal.jsx'
 import { ResetPasswordModal } from '@/components/admin/ResetPasswordModal.jsx'
 import { DeleteUserModal } from '@/components/admin/DeleteUserModal.jsx'
 import { Toast } from '@/components/admin/Toast.jsx'
+import { AdminDemoArrivalsPanel } from '@/components/admin/AdminDemoArrivalsPanel.jsx'
 
 export default function AdminPage() {
   const navigate = useNavigate()
@@ -317,6 +318,8 @@ export default function AdminPage() {
             </RolePrimaryButton>
           </div>
         </div>
+
+        <AdminDemoArrivalsPanel onToast={showToast} />
 
         {/* Executive KPI Stats Cards */}
         <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 lg:grid-cols-6">

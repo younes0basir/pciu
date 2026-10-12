@@ -62,6 +62,8 @@ export function boardVisitToCard(visit) {
     minutesInStep: waitMinutesSince(visit.arrivedAt),
     callCount: visit.callCount ?? 0,
     isCalled: visit.isCalled,
+    criticalFlag: visit.criticalFlag,
+    careStage: visit.careStage,
   }
 }
 
