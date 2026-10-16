@@ -12,12 +12,51 @@ const {
 } = require('../services/visitService');
 const { authenticateJwt, requireCapability } = require('../middleware/auth');
 const { attachActorContext, getActionContext } = require('../middleware/actorContext');
+const {
+  lookupPatientForRegistration,
+  getRegistrationHints,
+  getRegistrationQueueContext,
+} = require('../services/registrationIntelligenceService');
 
 const router = express.Router();
 
 // Apply JWT authentication to all visit routes
 router.use(authenticateJwt);
 router.use(attachActorContext);
+
+router.get('/register/preflight', requireCapability('register'), async (req, res, next) => {
+  try {
+    const nationalId = req.query.nationalId || req.query.cin || '';
+    const lookup = await lookupPatientForRegistration(nationalId);
+    const queue = await getRegistrationQueueContext();
+    res.json({
+      ...lookup,
+      queue,
+      meta: { generatedAt: new Date().toISOString() },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/register/hints', requireCapability('register'), async (req, res, next) => {
+  try {
+    const hints = getRegistrationHints({
+      chiefComplaint: req.query.chiefComplaint || '',
+      arrivalMode: req.query.arrivalMode || '',
+      registrationPriority:
+        req.query.registrationPriority != null && req.query.registrationPriority !== ''
+          ? Number(req.query.registrationPriority)
+          : null,
+    });
+    res.json({
+      ...hints,
+      meta: { generatedAt: new Date().toISOString() },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
 // GET /api/visits/:id - Patient Sheet details & event timeline
 router.get('/:id', async (req, res, next) => {

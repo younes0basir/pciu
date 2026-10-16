@@ -12,6 +12,7 @@ const {
 } = require('./lib/cli');
 const { verifyDatabase } = require('./lib/verifyDatabase');
 const { syncAdminFromEnv } = require('./services/adminBootstrap');
+const { evaluateOperationalAlerts } = require('./services/supervisionAlertSyncService');
 
 const PORT = Number(process.env.PORT) || 3001;
 const NODE_ENV = process.env.NODE_ENV || 'development';
@@ -19,6 +20,7 @@ const DATABASE_URL = process.env.DATABASE_URL;
 const baseUrl = `http://localhost:${PORT}`;
 
 let server;
+let alertEvalTimer = null;
 
 async function start() {
   printStartupBanner({
@@ -53,6 +55,24 @@ async function start() {
     logSuccess(`Server ready on ${baseUrl}`);
   });
 
+  const evalIntervalRaw = process.env.SUPERVISION_ALERT_EVAL_INTERVAL_MS;
+  const evalIntervalMs = evalIntervalRaw != null && evalIntervalRaw !== ''
+    ? Number(evalIntervalRaw)
+    : DATABASE_URL
+      ? 120_000
+      : 0;
+  if (Number.isFinite(evalIntervalMs) && evalIntervalMs > 0 && DATABASE_URL) {
+    alertEvalTimer = setInterval(() => {
+      evaluateOperationalAlerts().catch((error) => {
+        logWarn(
+          `Supervision alert evaluation failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      });
+    }, evalIntervalMs);
+    evaluateOperationalAlerts().catch(() => {});
+    logSuccess(`Supervision alert evaluation every ${evalIntervalMs}ms`);
+  }
+
   server.on('error', (error) => {
     if (error && typeof error === 'object' && 'code' in error && error.code === 'EADDRINUSE') {
       printFatal(new Error(`Port ${PORT} is already in use`));
@@ -68,6 +88,11 @@ function shutdown(signal) {
   if (!server) {
     process.exit(0);
     return;
+  }
+
+  if (alertEvalTimer) {
+    clearInterval(alertEvalTimer);
+    alertEvalTimer = null;
   }
 
   server.close((error) => {

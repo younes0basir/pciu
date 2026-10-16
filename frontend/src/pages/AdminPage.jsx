@@ -20,11 +20,14 @@ import {
   Link2,
   Check,
   Clock,
+  LayoutDashboard,
 } from 'lucide-react'
 
 import { getHomeRouteForRole, getStoredAuth, logout } from '@/api/auth.js'
-import { RoleDashboardHeader, RolePrimaryButton } from '@/components/layout/RoleDashboardHeader.jsx'
-import { DashboardShell } from '@/components/layout/DashboardShell.jsx'
+import { RolePrimaryButton } from '@/components/layout/RoleDashboardHeader.jsx'
+import { AppShell } from '@/components/layout/AppShell.jsx'
+import { DashboardPageHeader } from '@/components/layout/DashboardPageHeader.jsx'
+import { StatCard } from '@/components/ui/StatCard.jsx'
 import { checkBackendHealth } from '@/api.js'
 import {
   fetchUserStats,
@@ -43,6 +46,13 @@ import { ResetPasswordModal } from '@/components/admin/ResetPasswordModal.jsx'
 import { DeleteUserModal } from '@/components/admin/DeleteUserModal.jsx'
 import { Toast } from '@/components/admin/Toast.jsx'
 import { AdminDemoArrivalsPanel } from '@/components/admin/AdminDemoArrivalsPanel.jsx'
+import { AdminDatabaseResetPanel } from '@/components/admin/AdminDatabaseResetPanel.jsx'
+
+const ADMIN_NAV = [
+  { id: 'staff', label: 'Personnel & comptes', icon: Users },
+  { id: 'demo', label: 'Démo arrivées', icon: Activity },
+  { id: 'database', label: 'Base de données', icon: Database },
+]
 
 export default function AdminPage() {
   const navigate = useNavigate()
@@ -70,6 +80,7 @@ export default function AdminPage() {
   // Toast state
   const [toast, setToast] = useState(null)
   const [copiedId, setCopiedId] = useState(null)
+  const [workspace, setWorkspace] = useState('staff')
 
   const showToast = useCallback((type, title, message) => {
     setToast({ type, title, message })
@@ -259,186 +270,183 @@ export default function AdminPage() {
   }, [users, stats])
 
   return (
-    <DashboardShell role="admin">
-      <RoleDashboardHeader
-        role="admin"
-        badgeLabel="Admin Console"
-        subtitle="Plateforme Intelligente de Coordination des Urgences"
-        maxWidthClass="max-w-7xl"
-        backendHealth={backendHealth}
-        refreshing={refreshing}
-        onRefresh={() => loadData(true)}
-        user={auth?.user}
-        onLogout={() => {
-          logout()
-          navigate('/login')
-        }}
-        trailing={
-          <Link
-            to="/board"
-            className="hidden items-center gap-2 rounded-2xl border border-purple-200 bg-purple-50/60 px-4 py-2 text-xs font-extrabold text-purple-800 shadow-2xs transition hover:bg-purple-100 sm:inline-flex"
-          >
-            <Activity className="size-4 animate-pulse text-purple-600" />
-            <span>Tableau des Urgences</span>
-            <ChevronRight className="size-3.5" />
-          </Link>
-        }
-      />
+    <AppShell
+      role="admin"
+      user={auth?.user}
+      backendHealth={backendHealth}
+      refreshing={refreshing}
+      onRefresh={() => loadData(true)}
+      onLogout={() => {
+        logout()
+        navigate('/login')
+      }}
+      searchValue={searchQuery}
+      onSearchChange={workspace === 'staff' ? setSearchQuery : undefined}
+      searchPlaceholder="Rechercher un collaborateur…"
+      navItems={ADMIN_NAV}
+      activeNavId={workspace}
+      onSelectNav={setWorkspace}
+    >
+      <div className="space-y-4 max-w-7xl">
+        {workspace === 'demo' ? (
+          <>
+            <DashboardPageHeader
+              title="Démo arrivées"
+              badge="Simulation"
+              description="Simuler des arrivées patients pour démonstrations et tests."
+              actions={
+                <button
+                  type="button"
+                  onClick={() => setWorkspace('staff')}
+                  className="text-xs font-bold text-primary hover:underline"
+                >
+                  Retour au personnel
+                </button>
+              }
+            />
+            <AdminDemoArrivalsPanel onToast={showToast} />
+          </>
+        ) : null}
 
-      {/* Main Content Area */}
-      <main className="mx-auto max-w-7xl px-4 pt-6 sm:px-6 lg:px-8 space-y-6">
-        {/* Title & Fast Actions Banner */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
-              Gestion du Personnel & Comptes
-            </h1>
-            <p className="text-sm font-semibold text-slate-500 mt-1">
-              Création par jetons temporaires, activation autonome par mot de passe et contrôle des accès.
-            </p>
-          </div>
+        {workspace === 'database' ? (
+          <>
+            <DashboardPageHeader
+              title="Base de données"
+              badge="Maintenance"
+              description="Réinitialisation et maintenance de l’environnement de démo."
+              actions={
+                <button
+                  type="button"
+                  onClick={() => setWorkspace('staff')}
+                  className="text-xs font-bold text-primary hover:underline"
+                >
+                  Retour au personnel
+                </button>
+              }
+            />
+            <AdminDatabaseResetPanel onToast={showToast} onResetComplete={() => loadData(true)} />
+          </>
+        ) : null}
 
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <button
-              type="button"
-              onClick={handleExportCsv}
-              className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 hover:border-slate-300 transition"
-            >
-              <Download className="size-4 text-slate-500" />
-              Exporter CSV
-            </button>
-
-            <RolePrimaryButton
-              role="admin"
-              onClick={() => setCreateModalOpen(true)}
-              className="cursor-pointer px-5 py-2.5 text-xs"
-            >
-              <UserPlus className="size-4" />
-              Nouveau Collaborateur (Jeton)
-            </RolePrimaryButton>
-          </div>
-        </div>
-
-        <AdminDemoArrivalsPanel onToast={showToast} />
+        {workspace === 'staff' ? (
+          <>
+        <DashboardPageHeader
+          title="Gestion du Personnel & Comptes"
+          badge="Admin Console"
+          description="Création par jetons temporaires, activation autonome par mot de passe et contrôle des accès."
+          actions={
+            <>
+              <Link
+                to="/board"
+                className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2 text-xs font-bold text-text-primary shadow-2xs transition hover:bg-surface-muted"
+              >
+                <LayoutDashboard className="size-4 text-primary" />
+                <span className="hidden sm:inline">Tableau des Urgences</span>
+                <ChevronRight className="size-3.5" />
+              </Link>
+              <button
+                type="button"
+                onClick={handleExportCsv}
+                className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2 text-xs font-bold text-text-primary shadow-2xs transition hover:bg-surface-muted"
+              >
+                <Download className="size-4 text-text-secondary" />
+                Exporter CSV
+              </button>
+              <RolePrimaryButton
+                role="admin"
+                onClick={() => setCreateModalOpen(true)}
+                className="cursor-pointer rounded-xl px-3.5 py-2 text-xs"
+              >
+                <UserPlus className="size-4" />
+                Nouveau collaborateur
+              </RolePrimaryButton>
+            </>
+          }
+        />
 
         {/* Executive KPI Stats Cards */}
         <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 lg:grid-cols-6">
-          {/* Total Staff */}
-          <div
+          <StatCard
+            layout="column"
+            icon={Users}
+            label="Total Personnel"
+            value={counts.total}
+            sub={`${counts.active} configurés`}
+            tone="bg-sky-100 text-sky-700"
+            accentBorder={selectedRole === 'all' ? 'border-sky-300 ring-1 ring-sky-300/40' : ''}
             onClick={() => {
               setSelectedRole('all')
               setStatusFilter('all')
             }}
-            className="cursor-pointer rounded-3xl border border-sky-100 bg-white p-4 shadow-sm hover:border-sky-300 hover:shadow-md transition-all group"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Personnel</span>
-              <div className="rounded-xl bg-sky-50 p-2 text-sky-600 group-hover:scale-110 transition">
-                <Users className="size-4" />
-              </div>
-            </div>
-            <p className="text-2xl font-extrabold text-slate-900">{counts.total}</p>
-            <p className="text-[11px] font-semibold text-emerald-600 mt-1 flex items-center gap-1">
-              <span className="size-1.5 rounded-full bg-emerald-500"></span>
-              {counts.active} configurés
-            </p>
-          </div>
+          />
 
-          {/* Médecins */}
-          <div
+          <StatCard
+            layout="column"
+            icon={Stethoscope}
+            label="Médecins"
+            value={counts.doctor}
+            sub="Consultation & soins"
+            tone="bg-emerald-100 text-emerald-700"
+            accentBorder={selectedRole === 'doctor' ? 'border-emerald-400 ring-1 ring-emerald-400/30' : ''}
             onClick={() => setSelectedRole(selectedRole === 'doctor' ? 'all' : 'doctor')}
-            className={`cursor-pointer rounded-3xl border p-4 shadow-sm transition-all group ${
-              selectedRole === 'doctor'
-                ? 'border-emerald-400 bg-emerald-50/40 ring-2 ring-emerald-400/20 shadow-md'
-                : 'border-slate-100 bg-white hover:border-emerald-200 hover:shadow-md'
-            }`}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Médecins</span>
-              <div className="rounded-xl bg-emerald-50 p-2 text-emerald-600 group-hover:scale-110 transition">
-                <Stethoscope className="size-4" />
-              </div>
-            </div>
-            <p className="text-2xl font-extrabold text-emerald-700">{counts.doctor}</p>
-            <p className="text-[11px] font-semibold text-slate-500 mt-1">Consultation & Soins</p>
-          </div>
+          />
 
-          {/* Infirmiers */}
-          <div
+          <StatCard
+            layout="column"
+            icon={HeartPulse}
+            label="Infirmiers"
+            value={counts.nurse}
+            sub="Placement & triage"
+            tone="bg-sky-100 text-sky-700"
+            accentBorder={selectedRole === 'nurse' ? 'border-sky-400 ring-1 ring-sky-400/30' : ''}
             onClick={() => setSelectedRole(selectedRole === 'nurse' ? 'all' : 'nurse')}
-            className={`cursor-pointer rounded-3xl border p-4 shadow-sm transition-all group ${
-              selectedRole === 'nurse'
-                ? 'border-sky-400 bg-sky-50/40 ring-2 ring-sky-400/20 shadow-md'
-                : 'border-slate-100 bg-white hover:border-sky-200 hover:shadow-md'
-            }`}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Infirmiers</span>
-              <div className="rounded-xl bg-sky-50 p-2 text-sky-600 group-hover:scale-110 transition">
-                <HeartPulse className="size-4" />
-              </div>
-            </div>
-            <p className="text-2xl font-extrabold text-sky-700">{counts.nurse}</p>
-            <p className="text-[11px] font-semibold text-slate-500 mt-1">Placement & Triage</p>
-          </div>
+          />
 
-          {/* Accueil */}
-          <div
+          <StatCard
+            layout="column"
+            icon={ClipboardList}
+            label="Accueil"
+            value={counts.receptionist}
+            sub="Entrées & appel"
+            tone="bg-indigo-100 text-indigo-700"
+            accentBorder={
+              selectedRole === 'receptionist' ? 'border-indigo-400 ring-1 ring-indigo-400/30' : ''
+            }
             onClick={() => setSelectedRole(selectedRole === 'receptionist' ? 'all' : 'receptionist')}
-            className={`cursor-pointer rounded-3xl border p-4 shadow-sm transition-all group ${
-              selectedRole === 'receptionist'
-                ? 'border-indigo-400 bg-indigo-50/40 ring-2 ring-indigo-400/20 shadow-md'
-                : 'border-slate-100 bg-white hover:border-indigo-200 hover:shadow-md'
-            }`}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Accueil</span>
-              <div className="rounded-xl bg-indigo-50 p-2 text-indigo-600 group-hover:scale-110 transition">
-                <ClipboardList className="size-4" />
-              </div>
-            </div>
-            <p className="text-2xl font-extrabold text-indigo-700">{counts.receptionist}</p>
-            <p className="text-[11px] font-semibold text-slate-500 mt-1">Entrées & Appel</p>
-          </div>
+          />
 
-          {/* Chefs de Service */}
-          <div
+          <StatCard
+            layout="column"
+            icon={Award}
+            label="Chefs"
+            value={counts.chief}
+            sub="Supervision globale"
+            tone="bg-amber-100 text-amber-700"
+            accentBorder={selectedRole === 'chief' ? 'border-amber-400 ring-1 ring-amber-400/30' : ''}
             onClick={() => setSelectedRole(selectedRole === 'chief' ? 'all' : 'chief')}
-            className={`cursor-pointer rounded-3xl border p-4 shadow-sm transition-all group ${
-              selectedRole === 'chief'
-                ? 'border-amber-400 bg-amber-50/40 ring-2 ring-amber-400/20 shadow-md'
-                : 'border-slate-100 bg-white hover:border-amber-200 hover:shadow-md'
-            }`}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Chefs</span>
-              <div className="rounded-xl bg-amber-50 p-2 text-amber-600 group-hover:scale-110 transition">
-                <Award className="size-4" />
-              </div>
-            </div>
-            <p className="text-2xl font-extrabold text-amber-700">{counts.chief}</p>
-            <p className="text-[11px] font-semibold text-slate-500 mt-1">Supervision Globale</p>
-          </div>
+          />
 
           {/* System Health Status */}
-          <div className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Système & Base</span>
-              <div className="rounded-xl bg-emerald-50 p-2 text-emerald-600">
+          <div className="flex flex-col gap-2 rounded-2xl border border-border bg-surface p-3.5 shadow-2xs">
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-text-secondary">
+                Système & Base
+              </p>
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 shadow-2xs">
                 <Database className="size-4" />
               </div>
             </div>
-            <div className="flex items-center gap-1.5 mt-1">
+            <div className="flex items-center gap-1.5">
               <span
                 className={`size-2 rounded-full ${
-                  backendHealth?.status === 'ok' ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
+                  backendHealth?.status === 'ok' ? 'animate-pulse bg-emerald-500' : 'bg-amber-500'
                 }`}
-              ></span>
-              <span className="text-sm font-extrabold text-slate-800">
+              />
+              <span className="text-sm font-extrabold text-text-primary">
                 {backendHealth?.status === 'ok' ? 'Neon Connecté' : 'Vérification'}
               </span>
             </div>
-            <p className="text-[11px] font-semibold text-slate-500 mt-1">Sécurité Jetons Active</p>
+            <p className="text-[11px] font-medium text-text-secondary">Sécurité jetons active</p>
           </div>
         </div>
 
@@ -785,7 +793,9 @@ export default function AdminPage() {
             </div>
           )}
         </div>
-      </main>
+          </>
+        ) : null}
+      </div>
 
       {/* Modals */}
       <CreateUserModal
@@ -818,6 +828,6 @@ export default function AdminPage() {
 
       {/* Toast notifications */}
       <Toast toast={toast} onClose={() => setToast(null)} />
-    </DashboardShell>
+    </AppShell>
   )
 }

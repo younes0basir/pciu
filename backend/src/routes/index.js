@@ -11,6 +11,9 @@ const metricsRoutes = require('./metricsRoutes');
 const adminDemoRoutes = require('./adminDemoRoutes');
 const queueRoutes = require('./queueRoutes');
 const careRoutes = require('./careRoutes');
+const aiRoutes = require('./aiRoutes');
+const workflowRoutes = require('./workflowRoutes');
+const resourceRoutes = require('./resourceRoutes');
 
 const router = express.Router();
 
@@ -36,5 +39,8 @@ router.use('/metrics', metricsRoutes);
 router.use('/admin', adminDemoRoutes);
 router.use('/queue', queueRoutes);
 router.use('/care', careRoutes);
+router.use('/ai', aiRoutes);
+router.use('/workflow', workflowRoutes);
+router.use('/resources', resourceRoutes);
 
 module.exports = router;

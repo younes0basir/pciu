@@ -1,25 +1,90 @@
 const { query, withTransaction } = require('../config/db');
 const { logVisitAction } = require('../lib/visitActionLogger');
+const { publishVisitEvent } = require('./visitEventBus');
 const {
   findIdempotentActionResult,
   recordVisitEvent,
 } = require('./visitEventService');
 
+const BLOCKED_OPERATIONAL = ['maintenance', 'blocked', 'out_of_service'];
+
+async function recordBedStatusChange(client, bedId, fromStatus, toStatus, actorUser, note) {
+  const inserted = await client.query(
+    `INSERT INTO resource_status_events (bed_id, from_status, to_status, actor_user_id, note)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING id, created_at`,
+    [bedId, fromStatus, toStatus, actorUser?.id || null, note || null],
+  );
+  const row = inserted.rows[0];
+  publishVisitEvent({
+    id: Number(row.id),
+    visitId: null,
+    eventType: 'resource_status_changed',
+    fromStatus,
+    toStatus,
+    actorType: 'user',
+    agentRunId: null,
+    createdAt: row.created_at,
+    bedId: Number(bedId),
+  });
+  return row;
+}
+
+async function releaseBedToTurnover(client, bedId, actorUser, { note, visitId } = {}) {
+  if (!bedId) return null;
+
+  const bedRes = await client.query(
+    `SELECT id, operational_status FROM beds WHERE id = $1 FOR UPDATE`,
+    [bedId],
+  );
+  if (bedRes.rowCount === 0) return null;
+
+  const fromStatus = bedRes.rows[0].operational_status;
+  if (fromStatus === 'cleaning') {
+    return { bedId, operationalStatus: 'cleaning', unchanged: true };
+  }
+
+  await client.query(`UPDATE beds SET operational_status = 'cleaning' WHERE id = $1`, [bedId]);
+  await recordBedStatusChange(client, bedId, fromStatus, 'cleaning', actorUser, note);
+
+  if (visitId) {
+    await recordVisitEvent(client, {
+      visitId,
+      actorUserId: actorUser?.id || null,
+      actionContext: {},
+      eventType: 'bed_turnover_started',
+      fromStatus: null,
+      toStatus: null,
+      metadata: { bedId, fromOperationalStatus: fromStatus, toOperationalStatus: 'cleaning' },
+    });
+  }
+
+  return { bedId, fromStatus, operationalStatus: 'cleaning' };
+}
+
 async function assertBedAssignable(client, bedId) {
   const bedRes = await client.query(
-    `SELECT id, label, is_active, operational_status FROM beds WHERE id = $1`,
+    `SELECT id, label, is_active, operational_status FROM beds WHERE id = $1 FOR UPDATE`,
     [bedId],
   );
   if (bedRes.rowCount === 0 || !bedRes.rows[0].is_active) {
     throw { status: 404, message: 'Ressource introuvable ou inactive.' };
   }
   const bed = bedRes.rows[0];
-  if (bed.operational_status !== 'ready') {
+
+  if (BLOCKED_OPERATIONAL.includes(bed.operational_status)) {
     throw {
       status: 409,
       message: `Ressource non disponible (état : ${bed.operational_status}).`,
     };
   }
+  if (bed.operational_status !== 'ready') {
+    throw {
+      status: 409,
+      message: `Ressource non assignable (état : ${bed.operational_status}). Confirmer la remise en service après nettoyage.`,
+    };
+  }
+
   return bed;
 }
 
@@ -83,15 +148,10 @@ async function transferResource(visitId, newBedId, actorUser, actionContext = {}
     );
 
     if (fromBedId) {
-      await client.query(
-        `UPDATE beds SET operational_status = 'cleaning' WHERE id = $1`,
-        [fromBedId],
-      );
-      await client.query(
-        `INSERT INTO resource_status_events (bed_id, from_status, to_status, actor_user_id, note)
-         VALUES ($1, 'ready', 'cleaning', $2, 'after transfer')`,
-        [fromBedId, actorUser?.id || null],
-      );
+      await releaseBedToTurnover(client, fromBedId, actorUser, {
+        note: 'Transfert sortant',
+        visitId,
+      });
     }
 
     await client.query(
@@ -137,8 +197,15 @@ async function transferResource(visitId, newBedId, actorUser, actionContext = {}
 
 async function setOperationalStatus(bedId, data, actorUser, actionContext = {}) {
   const toStatus = data?.operationalStatus;
-  const allowed = ['ready', 'cleaning', 'maintenance', 'blocked', 'out_of_service'];
+  const allowed = ['cleaning', 'maintenance', 'blocked', 'out_of_service'];
   if (!allowed.includes(toStatus)) {
+    if (toStatus === 'ready') {
+      throw {
+        status: 422,
+        message:
+          'Utiliser la confirmation de nettoyage (confirm-ready) pour remettre une ressource en service.',
+      };
+    }
     throw { status: 400, message: 'operationalStatus invalide.' };
   }
 
@@ -151,19 +218,108 @@ async function setOperationalStatus(bedId, data, actorUser, actionContext = {}) 
       throw { status: 404, message: 'Ressource introuvable.' };
     }
 
+    const occupied = await client.query(
+      `SELECT visit_id FROM bed_assignments WHERE bed_id = $1 AND released_at IS NULL`,
+      [bedId],
+    );
+    if (occupied.rowCount > 0) {
+      throw {
+        status: 409,
+        message: 'Impossible de modifier l\'état d\'une ressource encore occupée.',
+      };
+    }
+
     const fromStatus = bedRes.rows[0].operational_status;
+    if (fromStatus === toStatus) {
+      return { bedId, fromStatus, operationalStatus: toStatus, unchanged: true };
+    }
+
     await client.query(
       `UPDATE beds SET operational_status = $1 WHERE id = $2`,
       [toStatus, bedId],
     );
 
-    await client.query(
-      `INSERT INTO resource_status_events (bed_id, from_status, to_status, actor_user_id, note)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [bedId, fromStatus, toStatus, actorUser?.id || null, data?.note || null],
-    );
+    await recordBedStatusChange(client, bedId, fromStatus, toStatus, actorUser, data?.note || null);
 
     return { bedId, fromStatus, operationalStatus: toStatus };
+  });
+}
+
+async function markBedCleaning(bedId, data, actorUser) {
+  return setOperationalStatus(
+    bedId,
+    { operationalStatus: 'cleaning', note: data?.note || 'Nettoyage déclaré' },
+    actorUser,
+  );
+}
+
+async function confirmBedReady(bedId, data, actorUser, actionContext = {}) {
+  return withTransaction(async (client) => {
+    const replay = await findIdempotentActionResult(client, actionContext.idempotencyKey);
+    if (replay) return replay;
+
+    const bedRes = await client.query(
+      `SELECT id, operational_status FROM beds WHERE id = $1 FOR UPDATE`,
+      [bedId],
+    );
+    if (bedRes.rowCount === 0) {
+      throw { status: 404, message: 'Ressource introuvable.' };
+    }
+
+    const fromStatus = bedRes.rows[0].operational_status;
+    const allowedFrom = ['cleaning', 'maintenance'];
+    if (!allowedFrom.includes(fromStatus)) {
+      throw {
+        status: 409,
+        message: `Remise en service impossible depuis l'état « ${fromStatus} ».`,
+      };
+    }
+
+    const occupied = await client.query(
+      `SELECT visit_id FROM bed_assignments WHERE bed_id = $1 AND released_at IS NULL`,
+      [bedId],
+    );
+    if (occupied.rowCount > 0) {
+      throw { status: 409, message: 'Le lit est encore occupé.' };
+    }
+
+    await client.query(`UPDATE beds SET operational_status = 'ready' WHERE id = $1`, [bedId]);
+    await recordBedStatusChange(
+      client,
+      bedId,
+      fromStatus,
+      'ready',
+      actorUser,
+      data?.note || 'Nettoyage vérifié',
+    );
+
+    const lastVisit = await client.query(
+      `SELECT visit_id FROM bed_assignments
+       WHERE bed_id = $1
+       ORDER BY COALESCE(released_at, assigned_at) DESC NULLS LAST
+       LIMIT 1`,
+      [bedId],
+    );
+    const visitId = lastVisit.rows[0]?.visit_id ?? null;
+    if (visitId) {
+      await recordVisitEvent(client, {
+        visitId,
+        actorUserId: actorUser?.id || null,
+        actionContext,
+        eventType: 'bed_ready_confirmed',
+        fromStatus: null,
+        toStatus: null,
+        metadata: {
+          bedId: Number(bedId),
+          fromOperationalStatus: fromStatus,
+          toOperationalStatus: 'ready',
+          note: data?.note || null,
+        },
+        actionResult: { bedId: Number(bedId), operationalStatus: 'ready' },
+      });
+    }
+
+    return { bedId, fromStatus, operationalStatus: 'ready' };
   });
 }
 
@@ -213,6 +369,10 @@ async function listResourcesWithStatus() {
 module.exports = {
   transferResource,
   setOperationalStatus,
+  markBedCleaning,
+  confirmBedReady,
   listResourcesWithStatus,
   assertBedAssignable,
+  releaseBedToTurnover,
+  recordBedStatusChange,
 };

@@ -1,0 +1,1743 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PICU — Soutenance</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,520;12..96,700&family=Figtree:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #1b1916;
+      --navy: #161412;
+      --navy-2: #2c2824;
+      --teal: #1f4a42;
+      --teal-bright: #b43322;
+      --signal: #b43322;
+      --paper: #f3eee6;
+      --card: #faf7f2;
+      --line: #d8d0c4;
+      --muted: #5e574e;
+      --ok: #1d5c40;
+      --ok-bg: #e4f1ea;
+      --warn: #8a4b12;
+      --warn-bg: #f8ead8;
+      --shadow: none;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      background: #07111c;
+      color: var(--ink);
+      font-family: Figtree, "Segoe UI", sans-serif;
+      overflow: hidden;
+    }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    img { max-width: 100%; }
+    :focus-visible { outline: 3px solid var(--signal); outline-offset: 3px; }
+    [hidden] { display: none !important; }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    #progress {
+      position: fixed;
+      inset: 0 0 auto 0;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.14);
+      z-index: 40;
+    }
+    #progress > span {
+      display: block;
+      height: 100%;
+      width: 0;
+      background: var(--signal);
+    }
+
+    .viewport {
+      height: 100vh;
+      overflow: hidden;
+      position: relative;
+    }
+    .stage {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 1920px;
+      height: 1080px;
+      transform-origin: center center;
+      background: var(--paper);
+    }
+
+    .slide {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      padding: 48px 72px 28px;
+      background: var(--paper);
+      color: var(--ink);
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+    .slide.is-active {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+    }
+    .kicker {
+      margin: 0 0 10px;
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--signal);
+    }
+    h2 {
+      margin: 0 0 22px;
+      max-width: 1500px;
+      font-family: "Bricolage Grotesque", Figtree, sans-serif;
+      font-size: 58px;
+      font-weight: 700;
+      letter-spacing: -0.045em;
+      line-height: 0.98;
+      color: var(--ink);
+    }
+    .body {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+      overflow: hidden;
+    }
+    .foot {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 0;
+      color: var(--muted);
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 14px;
+      letter-spacing: 0.04em;
+    }
+    .notes { display: none; }
+
+    .slide-cover,
+    .slide-end {
+      background: var(--paper);
+      color: var(--ink);
+      padding: 0;
+    }
+    .slide-cover h1,
+    .slide-end h1 {
+      margin: 0;
+      font-family: "Bricolage Grotesque", Figtree, sans-serif;
+      font-weight: 700;
+      letter-spacing: -0.06em;
+      line-height: 0.82;
+      color: #f4efe6;
+    }
+    .cover-split {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1.25fr 0.75fr;
+      min-height: 0;
+    }
+    .cover-ink {
+      background: #141210;
+      color: #f4efe6;
+      padding: 56px 64px 52px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+    }
+    .cover-side {
+      padding: 36px 40px 32px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 24px;
+    }
+    .slide-end .cover-split { grid-template-columns: 1fr; }
+    .slide-end .cover-ink { justify-content: center; }
+    .brandbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .logo-plate {
+      background: #fff;
+      border-radius: 18px;
+      height: 108px;
+      padding: 12px 18px;
+      display: flex;
+      align-items: center;
+    }
+    .logo-plate img { height: 80px; width: auto; display: block; }
+    .cover-main { margin-top: auto; margin-bottom: auto; max-width: 1280px; }
+    .eyebrow {
+      margin: 0 0 28px;
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #e7a090;
+    }
+    .slide-cover h1 { font-size: 168px; }
+    .cover-sub {
+      margin: 28px 0 0;
+      max-width: 760px;
+      font-family: Figtree, "Segoe UI", sans-serif;
+      font-size: 30px;
+      font-weight: 500;
+      line-height: 1.28;
+      color: #f4efe6;
+    }
+    .cover-lead {
+      margin: 28px 0 0;
+      max-width: 920px;
+      font-size: 26px;
+      line-height: 1.4;
+      color: #c5d3e0;
+    }
+    .cover-id {
+      display: flex;
+      justify-content: space-between;
+      gap: 40px;
+      align-items: flex-end;
+      padding-top: 28px;
+      border-top: 1px solid rgba(255, 255, 255, 0.16);
+    }
+    .cover-id p { margin: 0; }
+    .who-label {
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 13px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--signal);
+      font-weight: 600;
+    }
+    .who-name {
+      margin-top: 6px;
+      font-family: "Bricolage Grotesque", Figtree, sans-serif;
+      font-size: 40px;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      color: var(--ink);
+    }
+    .who-meta { margin-top: 8px; font-size: 20px; color: var(--muted); max-width: 420px; line-height: 1.35; }
+    .cover-year { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 16px; color: var(--muted); line-height: 1.45; }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; min-height: 0; flex: 1; }
+    .grid-main { display: grid; grid-template-columns: 460px 1fr; gap: 28px; min-height: 0; flex: 1; }
+    .grid-model { display: grid; grid-template-columns: 560px 1fr; gap: 28px; min-height: 0; flex: 1; }
+    .grid-2 > *,
+    .grid-main > *,
+    .grid-model > *,
+    .grid-5 > *,
+    .cols-2 > * { min-width: 0; min-height: 0; }
+    .grid-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 18px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    .stack { display: flex; flex-direction: column; gap: 16px; min-height: 0; }
+    .fill { flex: 1; min-height: 0; }
+
+    .card {
+      background: transparent;
+      border: 0;
+      border-top: 2px solid var(--ink);
+      border-radius: 0;
+      box-shadow: none;
+      padding: 18px 0 8px;
+    }
+    .card h3 {
+      margin: 0 0 8px;
+      font-family: "Bricolage Grotesque", Figtree, sans-serif;
+      font-size: 28px;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      color: var(--ink);
+    }
+    .card p { margin: 0; font-size: 20px; line-height: 1.4; color: var(--muted); }
+    .num {
+      display: block;
+      margin-bottom: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      color: var(--teal);
+    }
+
+    .mission {
+      background: #141210;
+      color: #f4efe6;
+      border-radius: 0;
+      padding: 26px 32px;
+    }
+    .mission span {
+      display: block;
+      margin-bottom: 8px;
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #e7a090;
+    }
+    .mission p {
+      margin: 0;
+      font-family: "Bricolage Grotesque", Figtree, sans-serif;
+      font-size: 32px;
+      letter-spacing: -0.03em;
+      line-height: 1.2;
+    }
+
+    .org { display: grid; gap: 0; }
+    .org-step {
+      display: grid;
+      grid-template-columns: 28px 1fr;
+      gap: 16px;
+    }
+    .rail { display: flex; flex-direction: column; align-items: center; }
+    .dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--teal);
+      margin-top: 6px;
+      flex: none;
+    }
+    .stem { width: 2px; flex: 1; background: #c5d5e4; min-height: 18px; }
+    .org-step h3 { margin: 0; font-size: 26px; color: var(--navy); }
+    .org-step p { margin: 4px 0 18px; font-size: 20px; color: var(--muted); }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 14px;
+    }
+    .flow article {
+      background: transparent;
+      border: 0;
+      border-top: 2px solid var(--ink);
+      border-radius: 0;
+      padding: 14px 8px 8px 0;
+      box-shadow: none;
+    }
+    .flow strong { display: block; color: var(--signal); font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 13px; letter-spacing: 0.08em; }
+    .flow span { display: block; margin-top: 8px; font-family: "Bricolage Grotesque", Figtree, sans-serif; font-size: 28px; font-weight: 700; letter-spacing: -0.03em; color: var(--ink); line-height: 1.05; }
+
+    .question {
+      margin: 0;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      padding: 36px 40px;
+      background: #141210;
+      color: #f4efe6;
+      border-radius: 0;
+      font-family: "Bricolage Grotesque", Figtree, sans-serif;
+      font-size: 44px;
+      font-weight: 520;
+      letter-spacing: -0.035em;
+      line-height: 1.18;
+    }
+    .question em { font-style: normal; color: #f0a090; }
+
+    .bullets { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+    .bullets li {
+      position: relative;
+      padding-left: 26px;
+      font-size: 24px;
+      line-height: 1.35;
+    }
+    .bullets li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0.45em;
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      background: var(--teal);
+    }
+
+    .roles { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+    .roles li {
+      background: transparent;
+      border: 0;
+      border-top: 2px solid var(--ink);
+      border-radius: 0;
+      padding: 10px 0 8px;
+    }
+    .roles li b { display: block; font-family: "Bricolage Grotesque", Figtree, sans-serif; font-size: 24px; letter-spacing: -0.03em; color: var(--ink); }
+    .roles li span { display: block; margin-top: 2px; font-size: 18px; color: var(--muted); line-height: 1.3; }
+
+    .callout {
+      border-radius: 0;
+      border-left: 4px solid var(--signal);
+      padding: 12px 16px;
+      background: transparent;
+      color: var(--ink);
+      font-size: 22px;
+      line-height: 1.35;
+    }
+    .callout b { display: block; margin-bottom: 4px; }
+
+    .rule {
+      margin-top: auto;
+      background: #141210;
+      color: #f4efe6;
+      border-radius: 0;
+      padding: 18px 20px;
+      font-size: 22px;
+      line-height: 1.3;
+    }
+    .rule span {
+      display: block;
+      margin-bottom: 6px;
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #e7a090;
+    }
+
+    .pills { display: flex; flex-wrap: wrap; gap: 8px; }
+    .pill {
+      background: transparent;
+      border: 1px solid var(--ink);
+      border-radius: 0;
+      padding: 8px 12px;
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--ink);
+    }
+    .tech { display: flex; gap: 0; border-top: 2px solid var(--ink); }
+    .tech span {
+      flex: 1;
+      text-align: left;
+      background: transparent;
+      border: 0;
+      border-right: 1px solid var(--line);
+      border-radius: 0;
+      padding: 16px 18px 8px 0;
+      font-family: "Bricolage Grotesque", Figtree, sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: var(--ink);
+    }
+    .thesis {
+      margin: 0;
+      max-width: 1500px;
+      font-family: "Bricolage Grotesque", Figtree, sans-serif;
+      font-size: 40px;
+      font-weight: 520;
+      letter-spacing: -0.035em;
+      line-height: 1.15;
+      color: var(--ink);
+    }
+    .track {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 0;
+      margin: 8px 0 0;
+      align-items: baseline;
+    }
+    .track span {
+      font-family: "Bricolage Grotesque", Figtree, sans-serif;
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+    }
+    .track span:not(:last-child)::after {
+      content: "/";
+      margin: 0 14px;
+      color: var(--signal);
+      font-weight: 500;
+    }
+    .spec {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 28px;
+      margin-top: auto;
+    }
+    .spec article { border-top: 2px solid var(--ink); padding-top: 16px; }
+    .spec span {
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 13px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--signal);
+    }
+    .spec strong {
+      display: block;
+      margin: 8px 0 6px;
+      font-family: "Bricolage Grotesque", Figtree, sans-serif;
+      font-size: 30px;
+      letter-spacing: -0.03em;
+    }
+    .spec p { margin: 0; font-size: 20px; color: var(--muted); line-height: 1.35; }
+    .split-spec {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 48px;
+      min-height: 0;
+    }
+    .split-spec ul { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 16px; }
+    .split-spec li {
+      font-size: 28px;
+      line-height: 1.25;
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+    }
+    .stair { list-style: none; margin: 0; padding: 0; counter-reset: stair; display: grid; gap: 0; flex: 1; }
+    .stair li {
+      counter-increment: stair;
+      display: grid;
+      grid-template-columns: 72px 280px 1fr;
+      gap: 18px;
+      align-items: baseline;
+      padding: 18px 0;
+      border-top: 2px solid var(--ink);
+      font-size: 26px;
+    }
+    .stair li::before {
+      content: counter(stair, decimal-leading-zero);
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      color: var(--signal);
+      font-size: 18px;
+    }
+    .stair b { font-family: "Bricolage Grotesque", Figtree, sans-serif; font-size: 36px; letter-spacing: -0.04em; }
+    .stair span { color: var(--muted); }
+    .aside-line { margin: 0; font-size: 22px; color: var(--muted); }
+    .tree { display: grid; gap: 0; flex: 1; }
+    .tree div {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 24px;
+      align-items: center;
+      padding: 22px 0;
+      border-top: 2px solid var(--ink);
+    }
+    .tree code {
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 28px;
+      color: var(--signal);
+    }
+    .tree p { margin: 0; font-size: 26px; line-height: 1.3; }
+    .state-row { display: flex; align-items: stretch; gap: 0; }
+    .state-row b {
+      flex: 1;
+      display: flex;
+      align-items: flex-end;
+      min-height: 320px;
+      background: #141210;
+      color: #f4efe6;
+      padding: 28px 24px;
+      font-family: "Bricolage Grotesque", Figtree, sans-serif;
+      font-size: 48px;
+      letter-spacing: -0.04em;
+    }
+    .state-row b.mid { background: var(--signal); color: #fff; }
+    .state-row b.ready { background: var(--teal); }
+    .role-line { display: grid; grid-template-columns: repeat(5, 1fr); gap: 18px; margin: 0; }
+    .role-line div { border-top: 2px solid var(--ink); padding-top: 14px; }
+    .role-line dt { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--signal); }
+    .role-line dd { margin: 8px 0 0; font-family: "Bricolage Grotesque", Figtree, sans-serif; font-size: 32px; letter-spacing: -0.04em; }
+
+    figure.diagram {
+      margin: 0;
+      min-height: 0;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: #fff;
+      border: 0;
+      border-radius: 0;
+      overflow: hidden;
+      box-shadow: none;
+    }
+    .zoom-btn {
+      position: relative;
+      flex: 1;
+      min-height: 0;
+      border: 0;
+      background: white;
+      padding: 0;
+      cursor: zoom-in;
+    }
+    .zoom-btn img {
+      position: absolute;
+      inset: 10px;
+      width: calc(100% - 20px);
+      height: calc(100% - 20px);
+      max-width: none;
+      object-fit: contain;
+    }
+    figcaption {
+      margin: 0;
+      padding: 10px 16px 12px;
+      border-top: 1px solid var(--line);
+      font-size: 17px;
+      color: var(--muted);
+    }
+
+    .chain {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: nowrap;
+    }
+    .chain b {
+      flex: 1;
+      text-align: left;
+      background: transparent;
+      border: 0;
+      border-top: 2px solid var(--ink);
+      border-radius: 0;
+      padding: 12px 8px 4px 0;
+      font-family: "Bricolage Grotesque", Figtree, sans-serif;
+      font-size: 20px;
+      letter-spacing: -0.03em;
+      color: var(--ink);
+    }
+    .chain i { color: var(--teal); font-style: normal; font-weight: 700; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 22px; }
+    .table-wrap {
+      background: transparent;
+      border: 0;
+      border-top: 2px solid var(--ink);
+      border-radius: 0;
+      overflow: hidden;
+      box-shadow: none;
+    }
+    th, td { text-align: left; padding: 14px 18px; vertical-align: top; }
+    th {
+      background: transparent;
+      color: var(--signal);
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    td { border-top: 1px solid var(--line); }
+    td:first-child { font-weight: 650; color: var(--navy); white-space: nowrap; }
+
+    .pyramid { display: grid; gap: 10px; justify-items: center; align-content: center; }
+    .lvl {
+      width: var(--w);
+      text-align: center;
+      color: white;
+      font-weight: 650;
+      font-size: 22px;
+      padding: 16px 12px;
+      border-radius: 12px;
+    }
+    .lvl:nth-child(1) { background: #0c7c84; }
+    .lvl:nth-child(2) { background: #14556e; }
+    .lvl:nth-child(3) { background: #0c2340; }
+
+    .side-notes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .mini {
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px 16px;
+    }
+    .mini b { display: block; color: var(--navy); font-size: 18px; margin-bottom: 4px; }
+    .mini span { font-size: 16px; color: var(--muted); line-height: 1.35; }
+
+    .pipe { display: flex; gap: 10px; list-style: none; margin: 0; padding: 0; }
+    .pipe li {
+      flex: 1;
+      background: transparent;
+      border: 0;
+      border-top: 2px solid var(--ink);
+      border-radius: 0;
+      min-height: 84px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: flex-start;
+      text-align: left;
+      padding: 12px 10px 4px 0;
+      font-family: "Bricolage Grotesque", Figtree, sans-serif;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: var(--ink);
+      position: relative;
+    }
+    .pipe li:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      right: -8px;
+      top: 50%;
+      width: 8px;
+      height: 2px;
+      background: var(--teal);
+    }
+
+    .badge {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .badge.ok { background: var(--ok-bg); color: var(--ok); }
+    .badge.warn { background: var(--warn-bg); color: var(--warn); }
+    .status-card.ok { box-shadow: inset 4px 0 0 var(--ok); }
+    .status-card.warn { box-shadow: inset 4px 0 0 #c48a2a; }
+
+    .steps {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .steps li {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      background: transparent;
+      border: 0;
+      border-top: 2px solid var(--ink);
+      border-radius: 0;
+      padding: 16px 8px 16px 0;
+      font-family: "Bricolage Grotesque", Figtree, sans-serif;
+      font-size: 28px;
+      letter-spacing: -0.03em;
+      color: var(--ink);
+      font-weight: 700;
+    }
+    .steps li::before {
+      counter-increment: step;
+      content: counter(step, decimal-leading-zero);
+      width: auto;
+      height: auto;
+      border-radius: 0;
+      background: transparent;
+      color: var(--signal);
+      display: block;
+      flex: none;
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .steps { counter-reset: step; }
+
+    .prio { display: flex; gap: 10px; }
+    .prio span {
+      flex: 1;
+      text-align: center;
+      border-radius: 12px;
+      padding: 10px 6px;
+      font-weight: 700;
+      font-size: 18px;
+      color: white;
+    }
+    .p1 { background: #9f1239; }
+    .p2 { background: #c2410c; }
+    .p3 { background: #a16207; }
+    .p4 { background: #0f766e; }
+    .p5 { background: #334155; }
+
+    .levels { display: grid; gap: 12px; }
+    .level {
+      background: transparent;
+      border: 0;
+      border-top: 2px solid var(--ink);
+      border-radius: 0;
+      padding: 16px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 16px;
+    }
+    .level b { font-family: "Bricolage Grotesque", Figtree, sans-serif; font-size: 32px; letter-spacing: -0.03em; color: var(--ink); }
+    .level span { font-size: 18px; color: var(--muted); }
+
+    .cols-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; flex: 1; min-height: 0; }
+    .panel {
+      border-radius: 22px;
+      padding: 36px 40px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 22px;
+    }
+    .panel.done { background: transparent; border-top: 2px solid var(--ink); border-radius: 0; }
+    .panel.next { background: #141210; color: #f4efe6; border-radius: 0; }
+    .panel h3 {
+      margin: 0;
+      font-family: "Bricolage Grotesque", Figtree, sans-serif;
+      font-size: 40px;
+      letter-spacing: -0.04em;
+    }
+    .panel ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; }
+    .panel li { font-size: 24px; line-height: 1.35; padding-left: 18px; position: relative; }
+    .panel li::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--teal-bright);
+      position: absolute;
+      left: 0;
+      top: 0.55em;
+    }
+    .closing {
+      background: transparent;
+      border-radius: 0;
+      border-top: 2px solid var(--signal);
+      padding: 16px 0 0;
+      font-family: "Bricolage Grotesque", Figtree, sans-serif;
+      font-size: 28px;
+      letter-spacing: -0.03em;
+      color: var(--ink);
+      line-height: 1.25;
+    }
+
+    .slide-end .cover-main { max-width: 1400px; }
+    .slide-end h1 { font-size: 160px; color: #f4efe6; }
+    .end-sub {
+      margin: 18px 0 0;
+      font-size: 32px;
+      color: #f4efe6;
+      max-width: 780px;
+      line-height: 1.3;
+    }
+
+    .q-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 28px; }
+    .q-grid article {
+      background: transparent;
+      border: 0;
+      border-top: 2px solid var(--ink);
+      border-radius: 0;
+      padding: 14px 8px 8px 0;
+    }
+    .q-grid h3 { margin: 0 0 6px; font-family: "Bricolage Grotesque", Figtree, sans-serif; font-size: 22px; letter-spacing: -0.03em; color: var(--ink); }
+    .q-grid p { margin: 0; font-size: 18px; line-height: 1.35; color: var(--muted); }
+
+    .dock {
+      position: fixed;
+      z-index: 30;
+      display: flex;
+      gap: 10px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    body.show-dock .dock,
+    .dock:focus-within {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .dock.left { left: 18px; top: 50%; transform: translateY(-50%); }
+    .dock.right { right: 18px; top: 50%; transform: translateY(-50%); }
+    .dock.tools {
+      top: 14px;
+      left: 50%;
+      right: auto;
+      transform: translateX(-50%);
+    }
+    .dock button, .overlay-close {
+      width: 48px;
+      height: 48px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(7, 17, 28, 0.78);
+      color: white;
+      display: grid;
+      place-items: center;
+    }
+    .dock.tools button { width: auto; padding: 0 16px; border-radius: 999px; font-size: 15px; font-weight: 600; }
+
+    #notes {
+      position: fixed;
+      z-index: 45;
+      left: 24px;
+      right: 24px;
+      bottom: 24px;
+      max-height: 34vh;
+      overflow: auto;
+      background: #0c2340;
+      color: #e7eef6;
+      border-radius: 18px;
+      padding: 18px 22px 20px;
+      box-shadow: 0 16px 50px rgba(0, 0, 0, 0.35);
+    }
+    #notes header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      color: #8fd4d8;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    #notes p { margin: 0; font-size: 18px; line-height: 1.45; white-space: pre-wrap; }
+
+    .overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      background: rgba(6, 12, 20, 0.94);
+      display: flex;
+      flex-direction: column;
+      padding: 28px;
+    }
+    .overlay header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: white;
+      margin-bottom: 18px;
+    }
+    .overlay header h2 {
+      color: white;
+      margin: 0;
+      font-size: 32px;
+    }
+    #zoom { align-items: center; justify-content: center; padding: 28px; }
+    #zoom header {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      margin: 0;
+    }
+    #zoom header h2 {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+    }
+    #zoom img {
+      max-width: min(1600px, 92vw);
+      max-height: 86vh;
+      object-fit: contain;
+      background: white;
+      border-radius: 12px;
+    }
+    #overview-list {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      overflow: auto;
+    }
+    #overview-list button {
+      text-align: left;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.04);
+      color: white;
+      border-radius: 14px;
+      padding: 14px 16px;
+      display: grid;
+      gap: 4px;
+    }
+    #overview-list button.is-current { border-color: #1aa6b0; background: rgba(26, 166, 176, 0.18); }
+    #overview-list span { color: #8fd4d8; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; }
+    #overview-list strong { font-size: 18px; font-weight: 600; }
+    #overview-list em { font-style: normal; color: #b7c6d4; font-size: 14px; }
+    #help {
+      max-width: 640px;
+      margin: auto;
+      background: white;
+      color: var(--ink);
+      border-radius: 20px;
+      padding: 28px;
+    }
+    #help h2 { font-size: 32px; }
+    #help ul { margin: 0; padding-left: 18px; font-size: 18px; line-height: 1.6; }
+    #help-wrap { background: rgba(6, 12, 20, 0.72); }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; animation: none !important; }
+    }
+    @media print {
+      body { overflow: visible; background: white; }
+      .viewport { height: auto; overflow: visible; }
+      .stage { position: static !important; transform: none !important; width: 1920px; height: auto; }
+      .slide {
+        position: relative !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        page-break-after: always;
+        break-after: page;
+        height: 1080px;
+      }
+      .dock, #notes, #overview, #zoom, #help-wrap, #progress { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div id="progress" aria-hidden="true"><span></span></div>
+  <p id="live" class="sr-only" aria-live="polite"></p>
+
+  <div class="viewport">
+    <div class="stage" id="stage">
+
+      <section class="slide slide-cover is-active" data-part="Ouverture" data-title="Page de garde">
+        <div class="cover-split">
+          <div class="cover-ink">
+            <p class="eyebrow">Soutenance · Département Informatique · 2024–2025</p>
+            <h1>PICU</h1>
+            <p class="cover-sub">Le parcours des urgences tenu par des règles, pas par la mémoire des équipes.</p>
+          </div>
+          <div class="cover-side">
+            <div class="brandbar">
+              <div class="logo-plate"><img src="../images/logo_upf.jpg" alt="Logo de l'Université Privée de Fès"></div>
+              <div class="logo-plate"><img src="../images/logo_chu.png" alt="Logo du CHU Hassan II de Fès"></div>
+            </div>
+            <div>
+              <p class="who-label">Présenté par</p>
+              <p class="who-name">Younes Basir</p>
+              <p class="who-meta">Université Privée de Fès<br>Stage, Département Informatique — Direction Générale du CHU Hassan II de Fès</p>
+              <p class="cover-year">Plateforme Intelligente de Coordination des Urgences</p>
+            </div>
+          </div>
+        </div>
+        <aside class="notes">30 secondes. Bonjour Mesdames et Messieurs les membres du jury. Je vous remercie pour votre présence. PICU est une plateforme de coordination des urgences. Je ne vais pas énumérer des écrans : je vais montrer comment un parcours informel devient un workflow explicite, avec des états, des droits et une ressource qui ne peut pas être prise deux fois. Transition : le terrain. Les noms des encadrants ne figurent pas sur la page de garde du rapport : les ajouter ici avant la soutenance s'ils doivent être cités.</aside>
+      </section>
+
+      <section class="slide" data-part="I · Contexte" data-title="Cadre du stage">
+        <p class="kicker">01 — Le terrain</p>
+        <h2>Là où l'information se perd.</h2>
+        <div class="body">
+          <p class="thesis">Au CHU Hassan II, l'accueil, l'infirmier, le médecin et le chef de service se relaient sur le même patient. Sans état partagé, la priorité, le lit et la responsabilité divergent.</p>
+          <div class="spec">
+            <article>
+              <span>Lieu</span>
+              <strong>Direction Générale</strong>
+              <p>Département Informatique du CHU Hassan II de Fès.</p>
+            </article>
+            <article>
+              <span>Mission</span>
+              <strong>Rendre le flux explicite</strong>
+              <p>Un parcours, des ressources, des droits. Pas un tableau de plus.</p>
+            </article>
+            <article>
+              <span>Formation</span>
+              <strong>Université Privée de Fès</strong>
+              <p>Département Informatique, année 2024–2025.</p>
+            </article>
+          </div>
+        </div>
+        <footer class="foot"><span>PICU · CHU Hassan II de Fès</span><span>02 / 17</span></footer>
+        <aside class="notes">55 secondes. Le stage s'est déroulé au Département Informatique de la Direction Générale du CHU Hassan II de Fès. La circulation de l'information, la disponibilité des ressources et la répartition des responsabilités y sont centrales. La mission : concevoir et développer une application web qui représente et suit ces opérations de manière structurée. Transition : cette mission répond à des difficultés de coordination dans un parcours patient complexe.</aside>
+      </section>
+
+      <section class="slide" data-part="I · Contexte" data-title="Problématique">
+        <p class="kicker">02 — Le problème</p>
+        <h2>Cinq métiers.<br>Une seule visite.</h2>
+        <div class="body">
+          <p class="track" aria-label="Parcours"><span>Arrivée</span><span>Accueil</span><span>Triage</span><span>Attente</span><span>Soins</span><span>Orientation</span></p>
+          <blockquote class="question">Comment savoir, à tout moment, <em>où en est le patient</em>, qui a le droit d'agir, et quelle ressource est vraiment libre&nbsp;?</blockquote>
+          <p class="aside-line">PICU répond par une plateforme commune. Elle ne se substitue pas au jugement clinique.</p>
+        </div>
+        <footer class="foot"><span>PICU · CHU Hassan II de Fès</span><span>03 / 17</span></footer>
+        <aside class="notes">1 minute. Plusieurs professionnels interviennent à des étapes différentes : accueil, triage, file d'attente, affectation, prise en charge. L'information doit rester cohérente et actualisée. PICU propose une plateforme commune. Elle ne se substitue pas au jugement clinique. Transition : définir les objectifs fonctionnels et techniques.</aside>
+      </section>
+
+      <section class="slide" data-part="I · Contexte" data-title="Objectifs et périmètre">
+        <p class="kicker">03 — Ce que PICU doit tenir</p>
+        <h2>Un parcours qui ne se contredit pas.</h2>
+        <div class="body">
+          <div class="split-spec">
+            <div>
+              <p class="kicker">Métier</p>
+              <ul>
+                <li>Ouvrir une visite, pas seulement une fiche.</li>
+                <li>Trier en P1–P5, puis ordonner la file.</li>
+                <li>Affecter salle, lit, équipe sans double prise.</li>
+                <li>Laisser la priorité au professionnel habilité.</li>
+              </ul>
+            </div>
+            <div>
+              <p class="kicker">Système</p>
+              <ul>
+                <li>Les règles vivent sur le serveur.</li>
+                <li>Transaction, verrou, historique.</li>
+                <li>Un écran par rôle, mis à jour ensemble.</li>
+                <li>Assez découpé pour grandir sans casser l'état.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <footer class="foot"><span>PICU · CHU Hassan II de Fès</span><span>04 / 17</span></footer>
+        <aside class="notes">55 secondes. Deux familles d'objectifs. Métier : une vision cohérente du parcours et des ressources. Technique : une application modulaire, dont les opérations sensibles sont sécurisées et traçables. Transition : transformer ces objectifs en besoins précis.</aside>
+      </section>
+
+      <section class="slide" data-part="II · Conception" data-title="Besoins et acteurs">
+        <p class="kicker">04 — Qui a le droit</p>
+        <h2>Cinq profils. Pas le même geste.</h2>
+        <div class="body">
+          <div class="grid-main fill">
+            <div class="stack">
+              <ul class="roles">
+                <li><b>Accueil</b><span>Enregistrement et consultation administrative.</span></li>
+                <li><b>Infirmier</b><span>Triage, suivi et actions autorisées.</span></li>
+                <li><b>Médecin</b><span>Consultation et décisions médicales.</span></li>
+                <li><b>Chef de service</b><span>Coordination et supervision.</span></li>
+                <li><b>Administrateur</b><span>Comptes, rôles et paramétrage.</span></li>
+              </ul>
+              <p class="callout"><b>Transversal.</b> Contrôle d'accès, traçabilité, cohérence, temps réel.</p>
+            </div>
+            <figure class="diagram">
+              <button class="zoom-btn" type="button" data-full="../images/use_case_diagram.png" aria-label="Agrandir le diagramme de cas d'utilisation">
+                <img src="../images/use_case_diagram.png" alt="Diagramme de cas d'utilisation PICU : accueil, infirmier, médecin, chef de service et administrateur.">
+              </button>
+              <figcaption>Chaque acteur n'atteint que ses cas. Le détail s'agrandit au clic.</figcaption>
+            </figure>
+          </div>
+        </div>
+        <footer class="foot"><span>PICU · CHU Hassan II de Fès</span><span>05 / 17</span></footer>
+        <aside class="notes">1 minute 10. Cinq catégories d'utilisateurs, chacune avec un périmètre d'action. Une opération de triage ou une décision médicale ne doit pas être ouverte à tous. Les besoins ont été formalisés en fonctionnalités, règles métier et permissions. Le diagramme résume cette répartition. Transition : une progression par modules.</aside>
+      </section>
+
+      <section class="slide" data-part="II · Conception" data-title="Méthodologie">
+        <p class="kicker">05 — Comment c'est construit</p>
+        <h2>Dans l'ordre du métier.</h2>
+        <div class="body">
+          <ol class="stair">
+            <li><b>Visite</b><span>Le patient entre dans un état, pas dans une fiche libre.</span></li>
+            <li><b>Triage</b><span>La priorité P1–P5 place la file de travail.</span></li>
+            <li><b>Ressource</b><span>Salle, lit, équipe : une occupation active à la fois.</span></li>
+            <li><b>Supervision</b><span>Le chef voit le flux, pas la copie de chaque écran.</span></li>
+          </ol>
+          <p class="aside-line">Itératif, oui. Scrum, non : pas de sprints ni de cérémonial à montrer. Chaque palier respecte les règles du précédent.</p>
+        </div>
+        <footer class="foot"><span>PICU · CHU Hassan II de Fès</span><span>06 / 17</span></footer>
+        <aside class="notes">1 minute 15. Progression fonctionnelle : modèle des patients et des visites, interactions principales, puis triage, ressources et supervision. Cela réduit la complexité. Je parle de démarche itérative et incrémentale, pas de Scrum, faute de sprints, de cérémonies et d'un suivi formalisé à montrer. Transition : une architecture séparée en couches.</aside>
+      </section>
+
+      <section class="slide" data-part="II · Conception" data-title="Architecture logicielle">
+        <p class="kicker">06 — Où s'arrête le navigateur</p>
+        <h2>Trois couches. Une seule vérité.</h2>
+        <div class="body">
+          <figure class="diagram fill">
+            <button class="zoom-btn" type="button" data-full="../images/architecture_picu.png" aria-label="Agrandir le diagramme d'architecture">
+              <img src="../images/architecture_picu.png" alt="Architecture PICU : utilisateurs, React et Vite, API Node.js Express, PostgreSQL. Requêtes REST et notifications SSE.">
+            </button>
+            <figcaption>React pousse l'action. Express tranche. PostgreSQL garde l'état. Les SSE préviennent les écrans, ils ne décident pas.</figcaption>
+          </figure>
+        </div>
+        <footer class="foot"><span>PICU · CHU Hassan II de Fès</span><span>07 / 17</span></footer>
+        <aside class="notes">1 minute 15. Le frontend présente les tableaux de bord. Le backend centralise les règles métier et les autorisations. PostgreSQL conserve les données et les transactions. Les échanges courants sont une API REST. Les Server-Sent Events signalent les changements aux interfaces connectées. Cette séparation évite de confier les décisions sensibles au seul navigateur. Transition : la difficulté principale est la modélisation des données et des états.</aside>
+      </section>
+
+      <section class="slide" data-part="II · Conception" data-title="Modélisation UML">
+        <p class="kicker">07 — Le modèle</p>
+        <h2>L'état avant l'écran.</h2>
+        <div class="body">
+          <div class="grid-model fill">
+            <div class="stack">
+              <ul class="bullets">
+                <li><b>Classes.</b> Patient, Visite, Utilisateur, Salle, Lit, Affectation, Événement.</li>
+                <li><b>Séquence.</b> Enregistrement et création d'une visite — annexe.</li>
+                <li><b>Activité.</b> Étapes du parcours — reprise au parcours patient.</li>
+              </ul>
+              <div class="pills" aria-label="États métier">
+                <span class="pill">Triage</span>
+                <span class="pill">Attente</span>
+                <span class="pill">Soins</span>
+                <span class="pill">Observation</span>
+                <span class="pill">Orientation</span>
+                <span class="pill">Clôture</span>
+              </div>
+              <p class="rule"><span>Règle critique</span>Une même ressource ne doit pas être affectée simultanément à plusieurs visites actives.</p>
+            </div>
+            <figure class="diagram">
+              <button class="zoom-btn" type="button" data-full="../images/class_diagram.png" aria-label="Agrandir le diagramme de classes">
+                <img src="../images/class_diagram.png" alt="Diagramme de classes PICU : Patient, Visite, Utilisateur, Salle, Lit et énumérations de statuts.">
+              </button>
+              <figcaption>Patient, visite, lit. Cliquer pour lire les cardinalités.</figcaption>
+            </figure>
+          </div>
+        </div>
+        <footer class="foot"><span>PICU · CHU Hassan II de Fès</span><span>08 / 17</span></footer>
+        <aside class="notes">1 minute 20. Deux dimensions. Structurelle : les entités et leurs relations, notamment un patient et ses visites successives. Comportementale : transitions, interactions et décisions possibles. Cette modélisation évite une double affectation de lit ou une transition de statut interdite. Les diagrammes doivent refléter l'implémentation. La séquence complète est en annexe, l'activité revient avec le parcours. Transition : l'organisation du code.</aside>
+      </section>
+
+      <section class="slide" data-part="III · Qualité" data-title="Code et versionnement">
+        <p class="kicker">08 — Où vit la décision</p>
+        <h2>Le code suit la règle, pas l'écran.</h2>
+        <div class="body">
+          <div class="tree">
+            <div><code>frontend/</code><p>Une page par rôle. L'appel au serveur n'est pas dispersé dans l'interface.</p></div>
+            <div><code>backend/</code><p>La route reçoit. Le service décide. Masquer un bouton ne vaut pas une autorisation.</p></div>
+            <div><code>postgresql/</code><p>Contraintes, transaction, historique. C'est là que le lit reste unique.</p></div>
+          </div>
+          <p class="aside-line">Git conserve l'historique réel. Les branches et les revues se montrent seulement si elles ont vraiment été utilisées.</p>
+        </div>
+        <footer class="foot"><span>PICU · CHU Hassan II de Fès</span><span>09 / 17</span></footer>
+        <aside class="notes">55 secondes. Le dépôt sépare les responsabilités. Côté frontend, pages et composants selon les utilisateurs. Côté backend, les routes délèguent aux services métier. Cela aide la recherche d'anomalies, l'ajout de fonctions et les tests ciblés. Pour Git, montrer l'historique réel. Ne pas inventer une politique de branches. Transition : cette structure prépare la validation.</aside>
+      </section>
+
+      <section class="slide" data-part="III · Qualité" data-title="Tests et qualité">
+        <p class="kicker">09 — Ce qu'il faut prouver</p>
+        <h2>Deux demandes.<br>Un seul lit.</h2>
+        <div class="body">
+          <p class="thesis">La qualité ne se voit pas sur la maquette. Elle se voit quand deux personnes veulent la même ressource, et qu'une seule l'obtient.</p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Épreuve</th><th>Ce qui doit rester vrai</th></tr></thead>
+              <tbody>
+                <tr><td>File</td><td>La priorité P1–P5 change l'ordre, pas le hasard.</td></tr>
+                <tr><td>Visite</td><td>Créer le patient écrit vraiment en base.</td></tr>
+                <tr><td>Parcours</td><td>Accueil, triage, affectation, clôture s'enchaînent.</td></tr>
+                <tr><td>Droit</td><td>Une action hors rôle est refusée par le serveur.</td></tr>
+                <tr><td>Course</td><td>Deux affectations simultanées, une seule active.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="aside-line">Les nombres du jour — lancés, réussis, échoués — viennent de l'exécution, pas d'un taux estimé.</p>
+        </div>
+        <footer class="foot"><span>PICU · CHU Hassan II de Fès</span><span>10 / 17</span></footer>
+        <aside class="notes">1 minute 25. La qualité ne se juge pas à l'apparence des écrans. Il faut vérifier les règles métier, la base, les droits et les conflits. Cas révélateur : deux utilisateurs demandent le même lit, une seule affectation active doit rester. Distinguer tests automatisés et vérifications manuelles. Ne pas inventer de chiffres. Le dépôt contient des tests node:test (ressources, supervision, enregistrement, analytique, sécurité V4) : les exécuter avant la soutenance et noter le résultat ici. Transition : rendre ces contrôles reproductibles.</aside>
+      </section>
+
+      <section class="slide" data-part="III · Qualité" data-title="CI/CD">
+        <p class="kicker">10 — Livraison</p>
+        <h2>Ce qui tourne. Ce qui reste une cible.</h2>
+        <div class="body">
+          <p class="kicker">Enchaînement visé, pas une prod hospitalière</p>
+          <ol class="pipe" aria-label="Pipeline cible">
+            <li>Commit</li>
+            <li>Installation</li>
+            <li>Lint / Build</li>
+            <li>Tests</li>
+            <li>Sécurité</li>
+            <li>Staging</li>
+            <li>Déploiement</li>
+          </ol>
+          <div class="grid-2 fill">
+            <article class="card status-card ok">
+              <span class="badge ok">Réalisé</span>
+              <h3>Garde des secrets</h3>
+              <p>Un workflow GitHub Actions, « secret guard », s'exécute sur les pushes et les pull requests. Il échoue si un fichier .env est versionné.</p>
+            </article>
+            <article class="card status-card warn">
+              <span class="badge warn">Perspective</span>
+              <h3>Pipeline complet</h3>
+              <p>Lint, build, tests automatiques, environnement de validation et déploiement contrôlé restent à industrialiser. Ce n'est pas une mise en production hospitalière.</p>
+            </article>
+          </div>
+          <p class="aside-line">Aujourd'hui, le dépôt bloque les fichiers .env. Lint, tests automatiques, staging et déploiement ne sont pas encore cette chaîne.</p>
+        </div>
+        <footer class="foot"><span>PICU · CHU Hassan II de Fès</span><span>11 / 17</span></footer>
+        <aside class="notes">1 minute 10. Variante honnête. La plateforme est structurée pour être industrialisée. Aujourd'hui, le pipeline réellement en place est le secret guard : il empêche de committer des fichiers .env. La chaîne complète — construction, tests, sécurité, validation, livraison — est une cible, pas un déploiement en production. Ne pas montrer un schéma comme s'il avait déjà tourné. Transition : sécurité et cohérence dans le backend.</aside>
+      </section>
+
+      <section class="slide" data-part="III · Qualité" data-title="Sécurité et cohérence">
+        <p class="kicker">11 — La cohérence</p>
+        <h2>L'interface ne suffit pas.</h2>
+        <div class="body">
+          <div class="chain" aria-label="Chaîne de contrôle">
+            <b>Demande</b><i>→</i>
+            <b>Autorisation</b><i>→</i>
+            <b>Transaction</b><i>→</i>
+            <b>Audit</b><i>→</i>
+            <b>Notification</b>
+          </div>
+          <div class="grid-2 fill">
+            <ul class="bullets">
+              <li>Authentification et capacités par rôle (RBAC), vérifiées côté serveur.</li>
+              <li>Transactions PostgreSQL et verrouillages ciblés.</li>
+              <li>Historique des événements de visite (<b>visit_events</b>).</li>
+              <li>SSE, avec un rafraîchissement de secours si le flux se coupe.</li>
+            </ul>
+            <article class="card" style="display:flex;flex-direction:column;justify-content:center">
+              <span class="num">Cas d'étude</span>
+              <h3>Empêcher la double affectation d'un lit</h3>
+              <p>L'interface ne suffit pas. La décision est prise dans une transaction serveur : une visite active occupe la ressource, la seconde demande est refusée.</p>
+            </article>
+          </div>
+          <p class="aside-line">La confidentialité et la conformité ne sont pas « réglées » parce que le RBAC existe. Elles demandent une validation de l'établissement.</p>
+        </div>
+        <footer class="foot"><span>PICU · CHU Hassan II de Fès</span><span>12 / 17</span></footer>
+        <aside class="notes">1 minute 20. Les permissions ne sont pas seulement masquées dans l'interface. Pour l'affectation d'une ressource, transactions et verrous limitent les conflits. L'historique permet de retracer le parcours. Le temps réel améliore la visibilité, la base reste la source de vérité. Ne pas présenter l'application comme conforme à un cadre réglementaire sans validation de l'établissement. Transition : observer le parcours réel dans PICU.</aside>
+      </section>
+
+      <section class="slide" data-part="IV · Réalisation" data-title="Parcours patient">
+        <p class="kicker">12 — Le flux</p>
+        <h2>De l'arrivée à la clôture.</h2>
+        <div class="body">
+          <div class="chain">
+            <b>Enregistrement</b><i>→</i>
+            <b>Triage</b><i>→</i>
+            <b>File</b><i>→</i>
+            <b>Affectation</b><i>→</i>
+            <b>Soins</b><i>→</i>
+            <b>Orientation</b><i>→</i>
+            <b>Clôture</b>
+          </div>
+          <div class="prio" aria-label="Niveaux de priorité">
+            <span class="p1">P1 Critique</span>
+            <span class="p2">P2 Très urgent</span>
+            <span class="p3">P3 Urgent</span>
+            <span class="p4">P4 Modéré</span>
+            <span class="p5">P5 Non urgent</span>
+          </div>
+          <figure class="diagram fill">
+            <button class="zoom-btn" type="button" data-full="../images/activity_diagram.png" aria-label="Agrandir le diagramme d'activité">
+              <img src="../images/activity_diagram.png" alt="Diagramme d'activité du parcours patient : accueil, triage, prise en charge, examens, orientation.">
+            </button>
+            <figcaption>La priorité et l'orientation restent des décisions humaines. Le système enregistre la transition.</figcaption>
+          </figure>
+        </div>
+        <footer class="foot"><span>PICU · CHU Hassan II de Fès</span><span>13 / 17</span></footer>
+        <aside class="notes">1 minute 15. Cœur fonctionnel. La visite naît à l'accueil. Le triage attribue une priorité qui positionne le patient dans les listes. Puis affectation, prise en charge, examens ou observation, orientation, clôture. L'historique est conservé. La plateforme organise, elle ne décide pas à la place du clinicien. Vérifier à l'oral les statuts exacts du code : waiting, placed, in_treatment, et les phases de soin. Transition : relier ce suivi aux ressources.</aside>
+      </section>
+
+      <section class="slide" data-part="IV · Réalisation" data-title="Ressources">
+        <p class="kicker">13 — La ressource</p>
+        <h2>Libéré n'est pas prêt.</h2>
+        <div class="body">
+          <div class="state-row" aria-label="États successifs d'un lit">
+            <b>Occupé</b>
+            <b class="mid">Nettoyage</b>
+            <b class="ready">Disponible</b>
+          </div>
+          <p class="thesis" style="font-size:34px;max-width:1100px">Zones, puis salles, puis lits. Quitter un lit ne le rend pas affectable. Le nettoyage est un état, pas une case mentale.</p>
+          <div class="pills">
+            <span class="pill">Maintenance</span>
+            <span class="pill">Hors service</span>
+            <span class="pill">Transfert</span>
+            <span class="pill">Libération</span>
+          </div>
+          <p class="aside-line">Dire que le cycle V4 est livré seulement s'il l'est vraiment dans le code du jour.</p>
+        </div>
+        <footer class="foot"><span>PICU · CHU Hassan II de Fès</span><span>14 / 17</span></footer>
+        <aside class="notes">1 minute 05. Le module représente zones, salles et lits, puis les affectations liées aux visites. Ne pas confondre fin d'occupation et disponibilité opérationnelle. Le nettoyage avant une nouvelle affectation est un point de sécurité. Le présenter selon son statut réel : existant, en cours, ou prévu en V4. Les états affichés viennent du modèle de classes. Transition : consolider ces données pour chaque profil.</aside>
+      </section>
+
+      <section class="slide" data-part="IV · Réalisation" data-title="Tableaux de bord">
+        <p class="kicker">14 — Les écrans</p>
+        <h2>Moins de bruit.<br>Le geste suivant.</h2>
+        <div class="body">
+          <div class="role-line">
+            <div><dt>Accueil</dt><dd>Enregistre</dd></div>
+            <div><dt>Infirmier</dt><dd>Trie</dd></div>
+            <div><dt>Médecin</dt><dd>Décide</dd></div>
+            <div><dt>Chef</dt><dd>Supervise</dd></div>
+            <div><dt>Admin</dt><dd>Paramètre</dd></div>
+          </div>
+          <p class="thesis">Chaque tableau de bord cache ce que le rôle ne peut pas faire. Les SSE poussent le changement ; si le flux coupe, l'écran se rattrape. La base reste devant.</p>
+          <p class="aside-line">La supervision V4 se montre dans l'état réel du dépôt, avec des patients fictifs.</p>
+        </div>
+        <footer class="foot"><span>PICU · CHU Hassan II de Fès</span><span>15 / 17</span></footer>
+        <aside class="notes">1 minute 05. Chaque tableau de bord réduit le bruit et met en avant les actions du rôle. Le chef de service a la vue transversale. Les SSE diffusent les changements, avec reprise si le flux coupe. Ne pas annoncer la supervision V4 comme terminée si elle ne l'est pas. Les captures d'écran des dashboards ne sont pas dans le dossier images : les montrer depuis l'application, avec un jeu fictif. Transition : enchaîner les modules dans un scénario.</aside>
+      </section>
+
+      <section class="slide" data-part="IV · Réalisation" data-title="Démonstration">
+        <p class="kicker">15 — En direct</p>
+        <h2>Un patient fictif, jusqu'au bout.</h2>
+        <div class="body">
+          <ol class="steps">
+            <li>L'accueil ouvre la visite.</li>
+            <li>L'infirmier pose une priorité.</li>
+            <li>La file se réordonne.</li>
+            <li>Un lit libre est pris, un seul.</li>
+            <li>Le médecin poursuit la prise en charge.</li>
+            <li>Orientation, puis clôture.</li>
+          </ol>
+          <p class="aside-line">Ce que l'on voit n'est pas encore ce qui est prouvé. La démo s'adosse aux tests réellement passés.</p>
+        </div>
+        <footer class="foot"><span>PICU · CHU Hassan II de Fès</span><span>16 / 17</span></footer>
+        <aside class="notes">1 minute 35. Patient fictif à l'accueil, triage et priorité, présence dans la liste, affectation d'une ressource, répercussion sur les tableaux de bord, orientation et clôture. Préparer les comptes de chaque rôle. Si une étape casse, passer aux captures. Ne pas simuler une fonction absente. Transition : enseignements et pistes.</aside>
+      </section>
+
+      <section class="slide" data-part="V · Bilan" data-title="Bilan et perspectives">
+        <p class="kicker">16 — Bilan</p>
+        <h2>Ce qui tient. Ce qui attend.</h2>
+        <div class="body">
+          <div class="cols-2">
+            <div class="panel done">
+              <h3>Tenu</h3>
+              <ul>
+                <li>Une visite a un état, et des transitions permises.</li>
+                <li>Un lit actif n'a qu'une affectation.</li>
+                <li>Le droit est tranché sur le serveur.</li>
+                <li>Chaque changement laisse une trace.</li>
+              </ul>
+            </div>
+            <div class="panel next">
+              <h3>Pas encore</h3>
+              <ul>
+                <li>La chaîne CI, au-delà du garde-secrets.</li>
+                <li>La validation avec les équipes du service.</li>
+                <li>Un usage réel dans le CHU.</li>
+                <li>Une aide NVIDIA NIM, sous contrôle humain.</li>
+              </ul>
+            </div>
+          </div>
+          <p class="closing">PICU coordonne le flux. Il ne décide pas à la place du clinicien.</p>
+        </div>
+        <footer class="foot"><span>PICU · CHU Hassan II de Fès</span><span>17 / 17</span></footer>
+        <aside class="notes">1 minute 20. Le stage dépasse les interfaces : analyse, modélisation, architecture, cohérence des données, risques. Avant un usage réel : tests, industrialisation, validation des processus, vérifications de sécurité. L'assistance IA reste une perspective supervisée, distincte du workflow déterministe. Remerciements, puis questions. Les annexes diagrammes sont après la diapositive de clôture.</aside>
+      </section>
+
+      <section class="slide slide-end" data-part="Clôture" data-title="Questions">
+        <div class="cover-split">
+          <div class="cover-ink">
+            <p class="eyebrow">PICU · CHU Hassan II de Fès</p>
+            <h1>Merci.</h1>
+            <p class="end-sub">Je suis à votre disposition pour vos questions.</p>
+            <p class="cover-year" style="color:#e7a090;margin-top:28px">Younes Basir · Université Privée de Fès · 2024–2025</p>
+          </div>
+        </div>
+        <aside class="notes">S'arrêter ici pour les questions. Réponses courtes préparées.
+
+Pourquoi React, Express et PostgreSQL ? Pour séparer présentation, règles métier et persistance. PostgreSQL apporte transactions et contraintes.
+
+Pourquoi SSE plutôt que le seul polling ? Le serveur pousse les changements, avec moins de latence perçue. Un rafraîchissement de secours couvre une coupure.
+
+Comment éviter une double affectation ? Vérification serveur, transaction, verrou, contraintes. L'interface seule ne suffit pas.
+
+Avez-vous utilisé Scrum ? Non au sens formalisé. Démarche itérative et incrémentale.
+
+CI/CD réellement en place ? Secret guard oui. Chaîne complète : perspective.
+
+Utilisable telle quelle dans un CHU ? Non, sans validations institutionnelles, métier, cliniques, sécurité et protection des données.
+
+L'IA décide-t-elle ? Non. Toute assistance future reste supervisée. Elle ne se confond pas avec le workflow déterministe.
+
+Défi technique principal : choisir un défi prouvable — cohérence des états, concurrence sur les lits, autorisations ou modélisation du processus.
+
+Diagrammes en annexe : flèche suivante, ou touche O.</aside>
+      </section>
+
+      <section class="slide" data-part="Annexe" data-title="Annexe — Séquence">
+        <p class="kicker">Annexe</p>
+        <h2>Enregistrer, de bout en bout.</h2>
+        <div class="body">
+          <figure class="diagram fill">
+            <button class="zoom-btn" type="button" data-full="../images/sequence_diagram.png" aria-label="Agrandir le diagramme de séquence">
+              <img src="../images/sequence_diagram.png" alt="Diagramme de séquence : de la saisie accueil jusqu'à la création de la visite, l'insertion PostgreSQL et l'événement SSE.">
+            </button>
+            <figcaption>Accueil → React → Express → PostgreSQL, puis numéro de visite et événement SSE. L'ordre des appels doit correspondre au code.</figcaption>
+          </figure>
+        </div>
+        <footer class="foot"><span>PICU · Annexe</span><span>Séquence</span></footer>
+        <aside class="notes">Ne pas l'inclure dans les 19 minutes, sauf si le jury demande le détail de l'enregistrement. Montrer la validation, le refus 400, la création patient et visite, puis la notification.</aside>
+      </section>
+
+      <section class="slide" data-part="Annexe" data-title="Annexe — Classes">
+        <p class="kicker">Annexe</p>
+        <h2>Le modèle, en grand.</h2>
+        <div class="body">
+          <figure class="diagram fill">
+            <button class="zoom-btn" type="button" data-full="../images/class_diagram.png" aria-label="Agrandir le diagramme de classes">
+              <img src="../images/class_diagram.png" alt="Diagramme de classes complet du modèle PICU.">
+            </button>
+            <figcaption>Patient, Visite, ressources et énumérations. À confronter au schéma PostgreSQL si une cardinalité est contestée.</figcaption>
+          </figure>
+        </div>
+        <footer class="foot"><span>PICU · Annexe</span><span>Classes</span></footer>
+        <aside class="notes">Version plein cadre du diagramme de la diapositive 8. Utile si le jury veut zoomer sur une relation ou un statut de lit.</aside>
+      </section>
+
+      <section class="slide" data-part="Annexe" data-title="Annexe — Activité">
+        <p class="kicker">Annexe</p>
+        <h2>Le parcours, en grand.</h2>
+        <div class="body">
+          <figure class="diagram fill">
+            <button class="zoom-btn" type="button" data-full="../images/activity_diagram.png" aria-label="Agrandir le diagramme d'activité">
+              <img src="../images/activity_diagram.png" alt="Diagramme d'activité complet du parcours patient aux urgences.">
+            </button>
+            <figcaption>Accueil, triage, prise en charge, examens, orientation. Les branches « cas grave » et « examens » sont des choix métier, pas des décisions automatiques.</figcaption>
+          </figure>
+        </div>
+        <footer class="foot"><span>PICU · Annexe</span><span>Activité</span></footer>
+        <aside class="notes">Version plein cadre du diagramme de la diapositive 13. Rappeler que la priorité et l'orientation restent des décisions humaines.</aside>
+      </section>
+
+      <section class="slide" data-part="Annexe" data-title="Annexe — Questions types">
+        <p class="kicker">Annexe · ne pas laisser affiché</p>
+        <h2>Si le jury demande.</h2>
+        <div class="body">
+          <div class="q-grid fill">
+            <article><h3>Pourquoi cette stack&nbsp;?</h3><p>Trois couches. PostgreSQL pour les transactions et les contraintes.</p></article>
+            <article><h3>Pourquoi les SSE&nbsp;?</h3><p>Le serveur notifie les écrans. Un secours existe si le flux coupe.</p></article>
+            <article><h3>Double affectation&nbsp;?</h3><p>Contrôle serveur, transaction, verrou. Pas seulement l'interface.</p></article>
+            <article><h3>Scrum&nbsp;?</h3><p>Itératif et incrémental. Pas de cérémonial Scrum à revendiquer.</p></article>
+            <article><h3>CI/CD&nbsp;?</h3><p>Secret guard en place. Pipeline complet : perspective.</p></article>
+            <article><h3>Déployable au CHU&nbsp;?</h3><p>Non, sans validations métier, cliniques, sécurité et données.</p></article>
+            <article><h3>L'IA décide&nbsp;?</h3><p>Non. Assistance future, sous contrôle humain.</p></article>
+            <article><h3>Défi principal&nbsp;?</h3><p>Cohérence des états et concurrence sur les ressources.</p></article>
+          </div>
+        </div>
+        <footer class="foot"><span>PICU · Annexe</span><span>Jury</span></footer>
+        <aside class="notes">Aide-mémoire. Répondre à partir du code et des tests réellement montrés, pas de cette fiche seule.</aside>
+      </section>
+
+    </div>
+  </div>
+
+  <div class="dock left">
+    <button type="button" id="prev" aria-label="Diapositive précédente">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 5L8 12l7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
+  <div class="dock right">
+    <button type="button" id="next" aria-label="Diapositive suivante">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
+  <div class="dock tools">
+    <button type="button" id="open-overview">Sommaire</button>
+    <button type="button" id="toggle-notes">Notes</button>
+    <button type="button" id="open-help" aria-label="Aide clavier">?</button>
+  </div>
+
+  <aside id="notes" hidden>
+    <header><span>Notes orateur</span><span>N pour masquer</span></header>
+    <p id="notes-body"></p>
+  </aside>
+
+  <div id="overview" class="overlay" hidden>
+    <header>
+      <h2>Sommaire</h2>
+      <button class="overlay-close" type="button" id="close-overview" aria-label="Fermer le sommaire">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </header>
+    <div id="overview-list"></div>
+  </div>
+
+  <div id="zoom" class="overlay" hidden>
+    <header style="width:100%">
+      <h2>Diagramme</h2>
+      <button class="overlay-close" type="button" id="close-zoom" aria-label="Fermer le diagramme">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </header>
+    <img id="zoom-img" alt="">
+  </div>
+
+  <div id="help-wrap" class="overlay" hidden>
+    <div id="help">
+      <h2>Navigation</h2>
+      <ul>
+        <li>Flèches ou espace : diapositive suivante ou précédente</li>
+        <li>N : notes orateur</li>
+        <li>O : sommaire</li>
+        <li>F : plein écran</li>
+        <li>Échap : fermer diagramme, sommaire ou notes</li>
+        <li>Début / Fin : première ou dernière diapositive</li>
+      </ul>
+      <p style="margin:18px 0 0"><button type="button" id="close-help">Fermer</button></p>
+    </div>
+  </div>
+
+  <noscript><p style="color:white;padding:24px">Activez JavaScript pour faire défiler la présentation.</p></noscript>
+
+  <script>
+    (function () {
+      const stage = document.getElementById("stage");
+      const slides = Array.from(document.querySelectorAll(".slide"));
+      const progress = document.querySelector("#progress > span");
+      const live = document.getElementById("live");
+      const notesPanel = document.getElementById("notes");
+      const notesBody = document.getElementById("notes-body");
+      const overview = document.getElementById("overview");
+      const overviewList = document.getElementById("overview-list");
+      const zoom = document.getElementById("zoom");
+      const zoomImg = document.getElementById("zoom-img");
+      const help = document.getElementById("help-wrap");
+      let index = 0;
+      let notesOn = false;
+
+      function fit() {
+        const scale = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+        stage.style.transform = "translate(-50%, -50%) scale(" + scale + ")";
+      }
+
+      function pad(n) {
+        return String(n).padStart(2, "0");
+      }
+
+      function render() {
+        slides.forEach(function (slide, i) {
+          const active = i === index;
+          slide.classList.toggle("is-active", active);
+          slide.setAttribute("aria-hidden", active ? "false" : "true");
+        });
+        progress.style.width = ((index + 1) / slides.length * 100) + "%";
+        const notes = slides[index].querySelector(".notes");
+        notesBody.textContent = notes ? notes.textContent.trim() : "";
+        const title = slides[index].dataset.title || "";
+        live.textContent = "Diapositive " + (index + 1) + " sur " + slides.length + ". " + title;
+        document.title = pad(index + 1) + " · " + title + " — PICU";
+        history.replaceState(null, "", "#" + (index + 1));
+        overviewList.querySelectorAll("button").forEach(function (btn, i) {
+          btn.classList.toggle("is-current", i === index);
+          if (i === index) btn.setAttribute("aria-current", "true");
+          else btn.removeAttribute("aria-current");
+        });
+      }
+
+      function go(n) {
+        index = Math.max(0, Math.min(slides.length - 1, n));
+        render();
+      }
+
+      slides.forEach(function (slide, i) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.innerHTML = "<span>" + pad(i + 1) + "</span><strong></strong><em></em>";
+        btn.querySelector("strong").textContent = slide.dataset.title || "";
+        btn.querySelector("em").textContent = slide.dataset.part || "";
+        btn.addEventListener("click", function () {
+          go(i);
+          overview.hidden = true;
+        });
+        overviewList.appendChild(btn);
+      });
+
+      function openZoom(src, alt) {
+        zoomImg.src = src;
+        zoomImg.alt = alt || "Diagramme agrandi";
+        zoom.hidden = false;
+        document.getElementById("close-zoom").focus();
+      }
+
+      document.body.addEventListener("click", function (event) {
+        const trigger = event.target.closest("[data-full]");
+        if (!trigger) return;
+        const img = trigger.querySelector("img");
+        openZoom(trigger.dataset.full, img ? img.alt : "");
+      });
+
+      document.getElementById("prev").addEventListener("click", function () { go(index - 1); });
+      document.getElementById("next").addEventListener("click", function () { go(index + 1); });
+      document.getElementById("toggle-notes").addEventListener("click", function () {
+        notesOn = !notesOn;
+        notesPanel.hidden = !notesOn;
+      });
+      document.getElementById("open-overview").addEventListener("click", function () { overview.hidden = false; });
+      document.getElementById("close-overview").addEventListener("click", function () { overview.hidden = true; });
+      document.getElementById("close-zoom").addEventListener("click", function () {
+        zoom.hidden = true;
+        zoomImg.removeAttribute("src");
+      });
+      document.getElementById("open-help").addEventListener("click", function () { help.hidden = false; });
+      document.getElementById("close-help").addEventListener("click", function () { help.hidden = true; });
+      zoom.addEventListener("click", function (event) {
+        if (event.target === zoom) {
+          zoom.hidden = true;
+          zoomImg.removeAttribute("src");
+        }
+      });
+
+      document.addEventListener("keydown", function (event) {
+        const inNotes = notesPanel.contains(event.target);
+        if (event.key === "Escape") {
+          if (!zoom.hidden) {
+            zoom.hidden = true;
+            zoomImg.removeAttribute("src");
+            return;
+          }
+          if (!overview.hidden) { overview.hidden = true; return; }
+          if (!help.hidden) { help.hidden = true; return; }
+          if (notesOn) {
+            notesOn = false;
+            notesPanel.hidden = true;
+          }
+          return;
+        }
+        if (!zoom.hidden || !help.hidden) return;
+        if (event.target.closest && event.target.closest("button") && (event.key === " " || event.key === "Enter")) return;
+        if (inNotes && (event.key === " " || event.key === "ArrowUp" || event.key === "ArrowDown")) return;
+        if (event.key === "ArrowRight" || event.key === "PageDown" || event.key === " ") {
+          event.preventDefault();
+          go(index + 1);
+        } else if (event.key === "ArrowLeft" || event.key === "PageUp" || event.key === "Backspace") {
+          event.preventDefault();
+          go(index - 1);
+        } else if (event.key === "Home") {
+          event.preventDefault();
+          go(0);
+        } else if (event.key === "End") {
+          event.preventDefault();
+          go(slides.length - 1);
+        } else if (event.key === "n" || event.key === "N") {
+          notesOn = !notesOn;
+          notesPanel.hidden = !notesOn;
+        } else if (event.key === "o" || event.key === "O") {
+          overview.hidden = !overview.hidden;
+        } else if (event.key === "f" || event.key === "F") {
+          if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+          else document.exitFullscreen();
+        }
+      });
+
+      let dockTimer = null;
+      function revealDock(event) {
+        if (event && event.clientX != null) {
+          const nearEdge = event.clientX < 88 || event.clientX > window.innerWidth - 88 || event.clientY < 72;
+          if (!nearEdge) return;
+        }
+        document.body.classList.add("show-dock");
+        clearTimeout(dockTimer);
+        dockTimer = setTimeout(function () {
+          if (!document.querySelector(".dock:focus-within")) {
+            document.body.classList.remove("show-dock");
+          }
+        }, 1400);
+      }
+      document.addEventListener("mousemove", revealDock);
+      document.addEventListener("focusin", revealDock);
+
+      let touchX = null;
+      stage.addEventListener("touchstart", function (event) {
+        touchX = event.changedTouches[0].clientX;
+      }, { passive: true });
+      stage.addEventListener("touchend", function (event) {
+        if (touchX == null) return;
+        const delta = event.changedTouches[0].clientX - touchX;
+        if (delta > 70) go(index - 1);
+        else if (delta < -70) go(index + 1);
+        touchX = null;
+      }, { passive: true });
+
+      const initial = parseInt(String(location.hash || "").replace("#", ""), 10);
+      if (initial >= 1 && initial <= slides.length) index = initial - 1;
+      fit();
+      render();
+      window.addEventListener("resize", fit);
+    })();
+  </script>
+</body>
+</html>

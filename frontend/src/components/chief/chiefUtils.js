@@ -138,6 +138,43 @@ export function filterChiefVisits(visits, { search, priorityMax, zoneName, stuck
   })
 }
 
+export function sortWaitingQueue(visits) {
+  return [...(visits || [])].sort((a, b) => {
+    const priorityDelta = Number(a.priority) - Number(b.priority)
+    if (priorityDelta !== 0) return priorityDelta
+    const criticalDelta = Number(Boolean(b.criticalFlag)) - Number(Boolean(a.criticalFlag))
+    if (criticalDelta !== 0) return criticalDelta
+    const arrivedDelta = new Date(a.arrivedAt).getTime() - new Date(b.arrivedAt).getTime()
+    if (Number.isFinite(arrivedDelta) && arrivedDelta !== 0) return arrivedDelta
+    return Number(a.visitId) - Number(b.visitId)
+  })
+}
+
+export function sortByQueueRank(visits, rankByVisitId) {
+  return [...(visits || [])].sort(
+    (a, b) => (rankByVisitId?.[a.visitId] ?? 9999) - (rankByVisitId?.[b.visitId] ?? 9999),
+  )
+}
+
+const BLOCKED_BED_STATUSES = ['maintenance', 'blocked', 'out_of_service']
+
+function isFreeBed(bed) {
+  const op = bed.operationalStatus || 'ready'
+  return !bed.occupied && op === 'ready' && !BLOCKED_BED_STATUSES.includes(op)
+}
+
+export function countReadyFreeBeds(beds) {
+  return (beds || []).filter(isFreeBed).length
+}
+
+export function countStaffedAssignableBeds(beds) {
+  return (beds || []).filter((bed) => isFreeBed(bed) && Boolean(bed.staffed)).length
+}
+
+export function countUnstaffedFreeBeds(beds) {
+  return (beds || []).filter((bed) => isFreeBed(bed) && !bed.staffed).length
+}
+
 export function exportClosedTodayCsv(rows) {
   const headers = [
     'Code',

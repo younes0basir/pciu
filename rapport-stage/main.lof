@@ -1,0 +1,18 @@
+\babel@toc {french}{}\relax 
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {2.1}{\ignorespaces Diagramme de cas d'utilisation de PICU}}{23}{figure.caption.11}%
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {3.1}{\ignorespaces Architecture en trois couches et communications REST/Socket.IO}}{28}{figure.caption.14}%
+\contentsline {figure}{\numberline {3.2}{\ignorespaces Diagramme de séquence — Enregistrement d'un patient}}{30}{figure.caption.17}%
+\contentsline {figure}{\numberline {3.3}{\ignorespaces Diagramme d'activité — Circuit de triage et de prise en charge}}{31}{figure.caption.18}%
+\contentsline {figure}{\numberline {3.4}{\ignorespaces Diagramme de classes de PICU}}{32}{figure.caption.19}%
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {4.1}{\ignorespaces Page de connexion de PICU}}{36}{figure.caption.23}%
+\contentsline {figure}{\numberline {4.2}{\ignorespaces Dashboard Infirmier — triage, plan des lits et file}}{38}{figure.caption.24}%
+\contentsline {figure}{\numberline {4.3}{\ignorespaces Dashboard Médecin — patients actifs et consultations}}{38}{figure.caption.25}%
+\contentsline {figure}{\numberline {4.4}{\ignorespaces Dashboard Chef de service — centre de commande}}{40}{figure.caption.27}%
+\contentsline {figure}{\numberline {4.5}{\ignorespaces Dashboard Accueil — file d'attente et enregistrement}}{40}{figure.caption.28}%
+\contentsline {figure}{\numberline {4.6}{\ignorespaces Dashboard Administrateur — configuration du système}}{41}{figure.caption.29}%
+\addvspace {10\p@ }
+\addvspace {10\p@ }

@@ -1,0 +1,71 @@
+\documentclass[12pt,a4paper]{report}
+
+% Importation des packages
+\input{packages.tex}
+
+% Configuration du document
+\input{settings.tex}
+
+\begin{document}
+
+% Page de garde
+\include{chapters/00_page_garde}
+
+% Remerciements
+\include{chapters/01_remerciements}
+
+% Résumé et Abstract
+\include{chapters/02_resume}
+
+% Table des matières
+\tableofcontents
+\cleardoublepage
+
+% Liste des figures
+\listoffigures
+\cleardoublepage
+
+% Liste des tableaux
+\listoftables
+\cleardoublepage
+
+% Liste des acronymes
+\include{chapters/12_acronymes}
+\cleardoublepage
+
+% Introduction générale
+\include{chapters/03_introduction_generale}
+
+% Chapitre 1 : Organisme d'accueil et contexte du projet
+\include{chapters/04_chap1_contexte}
+
+% Chapitre 2 : Analyse et spécification des besoins
+\include{chapters/05_chap2_besoins}
+
+% Chapitre 3 : Méthodologie et conception du système
+\include{chapters/06_chap3_conception}
+
+% Chapitre 4 : Réalisation de la plateforme PICU
+\include{chapters/07_chap4_realisation}
+
+% Chapitre 5 : Assurance qualité, sécurité et CI/CD
+\include{chapters/08_chap5_qualite}
+
+% Chapitre 6 : Évaluation, bilan et perspectives
+\include{chapters/09_chap6_bilan}
+
+% Conclusion générale
+\include{chapters/11_conclusion_generale}
+
+% Bibliographie
+\nocite{*}
+\bibliographystyle{plain}
+\bibliography{bibliography}
+
+% Webographie
+\include{chapters/13_webographie}
+
+% Annexes
+\include{chapters/14_annexes}
+
+\end{document}

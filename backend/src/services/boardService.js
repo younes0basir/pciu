@@ -1,5 +1,6 @@
 const { query } = require('../config/db');
 const { getCapabilities } = require('../config/roles');
+const { mapVisitPriorityFields } = require('../lib/visitPriority');
 
 async function getBoardSnapshot(currentUser) {
   // 1. Fetch waiting board from the SQL view
@@ -62,7 +63,7 @@ async function getBoardSnapshot(currentUser) {
     waiting: waitingResult.rows.map((row) => ({
       visitId: row.visit_id,
       publicCode: row.public_code,
-      priority: row.priority,
+      ...mapVisitPriorityFields(row),
       careStage: row.care_stage,
       criticalFlag: Boolean(row.critical_flag),
       orientation: row.current_orientation,

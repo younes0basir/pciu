@@ -1,0 +1,63 @@
+\chapter*{Introduction générale}
+\addcontentsline{toc}{chapter}{Introduction générale}
+
+\section{Contexte général}
+
+Les services des urgences hospitaliers constituent un maillon critique du système de santé : ils assurent la prise en charge immédiate de patients dont l'état peut s'aggraver en quelques minutes. Le Centre Hospitalier Universitaire Hassan II de Fès, établissement de référence régional, accueille en permanence un flux important de patients adultes et pédiatriques. La qualité de cet accueil dépend d'une coordination rigoureuse entre l'accueil administratif, le triage clinique, l'orientation vers les zones spécialisées et la disponibilité des ressources (salles, lits, personnel).
+
+Or, dans de nombreux services, cette coordination reste largement manuelle : transmissions orales, supports papier et outils non intégrés. Il en résulte des pertes d'information, des délais de prise en charge difficiles à mesurer et une visibilité limitée sur l'occupation réelle des zones.
+
+\section{Problématique}
+
+La problématique centrale de ce stage peut être formulée ainsi :
+
+\begin{quote}
+\textit{Comment concevoir et réaliser une plateforme numérique capable de formaliser le workflow des urgences, de garantir la cohérence et la traçabilité du parcours patient de l'arrivée à la sortie, d'offrir une vision temps réel partagée entre les rôles, tout en intégrant une assistance IA sous contrôle humain ?}
+\end{quote}
+
+Cette problématique recouvre trois difficultés techniques : l'absence d'un modèle d'état explicite du parcours patient ; la gestion concurrente des ressources partagées (deux infirmiers ne doivent jamais affecter le même lit) ; et la définition d'une frontière stricte entre les décisions automatisables et les décisions strictement cliniques.
+
+\section{Objectifs du projet}
+
+Le projet PICU (Plateforme Intelligente de Coordination des Urgences) poursuit les objectifs suivants :
+
+\begin{itemize}
+    \item \textbf{formaliser} le parcours patient en une machine à états transactionnelle, source de vérité unique ;
+    \item \textbf{centraliser} la gestion des patients, des visites, des ressources et des équipes de salle ;
+    \item \textbf{offrir} une vision en temps réel de l'activité, diffusée par Socket.IO à tous les postes ;
+    \item \textbf{garantir} l'intégrité et la traçabilité de chaque décision (\texttt{visit\_events}) ;
+    \item \textbf{assurer} la sécurité par un contrôle d'accès par rôle et capacités (RBAC) et des jetons JWT ;
+    \item \textbf{assister} les équipes par une couche IA (triage, lits, capacité, documentation) strictement supervisée ;
+    \item \textbf{industrialiser} le cycle de vie du code (versioning, hooks, intégration continue).
+\end{itemize}
+
+\section{Démarche d'ingénierie adoptée}
+
+Le rapport met délibérément l'accent sur la démarche d'ingénierie plutôt que sur une simple énumération de fonctionnalités. Pour chaque décision majeure, nous nous efforçons de présenter le problème initial, les solutions envisagées, la solution retenue, sa justification technique et la manière dont son bon fonctionnement a été vérifié. Le projet a été mené de façon itérative, organisé autour de jalons versionnés : socle transactionnel, enrichissement du parcours (V3), supervision et ressources (V4), puis couche d'assistance IA.
+
+\section{Méthodologie et outils}
+
+La méthodologie combine une approche incrémentale, une modélisation UML en amont (cas d'utilisation, états, séquence, classes), une conception de base de données normalisée et un cycle qualité continu. Les principaux outils sont :
+
+\begin{itemize}
+    \item \textbf{Git} pour la gestion de versions, avec une convention de commits et des hooks \texttt{pre-commit} ;
+    \item \textbf{GitHub Actions} pour les vérifications automatiques (pipeline « secret guard ») ;
+    \item \textbf{Node.js} et le lanceur de tests natif \texttt{node:test} pour l'exécution automatisée ;
+    \item \textbf{Draw.io / Mermaid} pour les diagrammes UML ;
+    \item \textbf{Neon} comme hébergement PostgreSQL managé.
+\end{itemize}
+
+\section{Organisation du rapport}
+
+Le rapport est structuré en six chapitres :
+
+\begin{itemize}
+    \item \textbf{Chapitre 1} : Organisme d'accueil et contexte du projet ;
+    \item \textbf{Chapitre 2} : Analyse et spécification des besoins ;
+    \item \textbf{Chapitre 3} : Méthodologie et conception du système ;
+    \item \textbf{Chapitre 4} : Réalisation de la plateforme PICU ;
+    \item \textbf{Chapitre 5} : Assurance qualité, sécurité et CI/CD ;
+    \item \textbf{Chapitre 6} : Évaluation, bilan et perspectives.
+\end{itemize}
+
+Le document se termine par une conclusion générale, une bibliographie, une webographie et des annexes.

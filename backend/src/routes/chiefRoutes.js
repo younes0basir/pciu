@@ -1,17 +1,30 @@
 const express = require('express');
 const { authenticateJwt, requireRole } = require('../middleware/auth');
 const { getChiefOverview } = require('../services/chiefService');
+const { getPatientAnalytics } = require('../services/patientAnalyticsService');
 const { assignRoomTeam, clearRoomTeam, getStaffBoard } = require('../services/staffService');
+const chiefSupervisionRoutes = require('./chiefSupervisionRoutes');
 
 const router = express.Router();
 
 router.use(authenticateJwt, requireRole('chief'));
+router.use('/supervision', chiefSupervisionRoutes);
 
 // GET /api/chief/overview — pipeline board + KPIs for chef de service
 router.get('/overview', async (_req, res, next) => {
   try {
     const overview = await getChiefOverview();
     res.json(overview);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/chief/analytics/patients — aggregated patient KPIs, no identifiers
+router.get('/analytics/patients', async (req, res, next) => {
+  try {
+    const analytics = await getPatientAnalytics(req.query.period);
+    res.json(analytics);
   } catch (error) {
     next(error);
   }

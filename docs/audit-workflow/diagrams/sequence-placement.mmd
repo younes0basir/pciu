@@ -1,0 +1,28 @@
+sequenceDiagram
+    autonumber
+    actor N as Infirmier
+    participant API as API Express
+    participant VS as visitService
+    participant DB as PostgreSQL
+    participant BUS as visitEventBus
+
+    N->>API: POST /api/visits/{id}/place {bed_id}
+    Note over API: requireCapability('place')
+    API->>VS: placeVisit
+    VS->>DB: BEGIN
+    VS->>DB: SELECT visites actives du patient FOR UPDATE
+    VS->>DB: SELECT bed FOR UPDATE
+    alt lit non ready ou occupé
+        VS-->>API: conflict 409
+        API-->>N: 409 lit indisponible
+    else lit ready et libre
+        VS->>DB: INSERT bed_assignments (actif)
+        VS->>DB: UPDATE beds SET status=occupied
+        VS->>DB: UPDATE visits SET status=placed, care_stage=waiting_care, patient_location=resource
+        VS->>DB: INSERT visit_events (placed)
+        VS->>DB: COMMIT
+        Note over DB: index unique partiel empeche double affectation
+        VS->>BUS: publish(placed)
+        VS-->>API: 201
+        API-->>N: 201 place
+    end

@@ -1,0 +1,34 @@
+sequenceDiagram
+    autonumber
+    actor A as Accueil
+    participant API as API Express
+    participant VS as visitService
+    participant DB as PostgreSQL
+    participant BUS as visitEventBus
+    participant C as Autres dashboards
+
+    A->>API: GET /api/visits/register/preflight?cin=...
+    API->>VS: lookupPatientForRegistration
+    VS->>DB: SELECT patient + visite active
+    DB-->>VS: résultat
+    VS-->>A: candidats / alertes dédup
+
+    A->>API: POST /api/visits/register
+    Note over API: requireCapability('register')
+    API->>VS: registerVisitTransaction
+    VS->>DB: BEGIN
+    VS->>DB: SELECT visite active FOR UPDATE
+    alt visite active existante
+        DB-->>VS: 1 ligne
+        VS-->>API: conflict 409
+        API-->>A: 409 déjà enregistré
+    else aucune visite active
+        VS->>DB: INSERT patients (si nouveau)
+        VS->>DB: INSERT visits status=waiting care_stage=triage_pending
+        VS->>DB: INSERT visit_events (registered)
+        VS->>DB: COMMIT
+        VS->>BUS: publish(registered)
+        BUS-->>C: SSE visit_event
+        VS-->>API: 201 visite
+        API-->>A: 201 + public_code
+    end

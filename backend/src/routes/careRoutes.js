@@ -8,7 +8,7 @@ const {
   completeVisit,
 } = require('../services/careService');
 const { recordTriage, setCriticalFlag, listTriageHistory } = require('../services/triageService');
-const { transferResource, setOperationalStatus } = require('../services/resourceService');
+const { transferResource, setOperationalStatus, confirmBedReady } = require('../services/resourceService');
 const { calculateLoad } = require('../services/capacityService');
 const {
   listExamsForVisit,
@@ -194,6 +194,20 @@ router.post('/visits/:id/transfer', requireCapability('place'), async (req, res,
 router.patch('/resources/:bedId/status', requireCapability('place'), async (req, res, next) => {
   try {
     const result = await setOperationalStatus(
+      req.params.bedId,
+      req.body || {},
+      req.user,
+      getActionContext(req),
+    );
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/resources/:bedId/confirm-ready', requireCapability('place'), async (req, res, next) => {
+  try {
+    const result = await confirmBedReady(
       req.params.bedId,
       req.body || {},
       req.user,

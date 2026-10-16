@@ -7,7 +7,8 @@ async function calculateLoad() {
     query(
       `SELECT
         COUNT(*)::int AS total,
-        COUNT(*) FILTER (WHERE operational_status = 'ready' AND NOT EXISTS (
+        COUNT(*) FILTER (WHERE operational_status = 'ready'
+          AND NOT EXISTS (
           SELECT 1 FROM bed_assignments ba WHERE ba.bed_id = beds.id AND ba.released_at IS NULL
         ))::int AS ready_free
        FROM beds

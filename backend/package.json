@@ -8,7 +8,12 @@
     "dev": "node --watch src/server.js",
     "seed": "node src/scripts/seed.js",
     "migrate:phase-a": "node src/scripts/applyPhaseAFoundationMigration.js",
-    "migrate:v3": "node src/scripts/applyV3Migration.js"
+    "migrate:v3": "node src/scripts/applyV3Migration.js",
+    "migrate:ai": "node src/scripts/applyAiMigration.js",
+    "migrate:v4": "node src/scripts/applyV4Migration.js",
+    "test:v4": "node --test src/tests/v4-safety.test.js",
+    "test:supervision": "node --test src/tests/supervision-rules.test.js",
+    "test:registration": "node --test src/tests/registration-intelligence.test.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

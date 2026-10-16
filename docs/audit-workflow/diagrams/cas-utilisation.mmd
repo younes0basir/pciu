@@ -1,0 +1,54 @@
+flowchart LR
+    Receptionist([Agent d'accueil])
+    Nurse([Infirmier])
+    Doctor([Médecin])
+    Chief([Chef de service])
+    Admin([Administrateur])
+
+    subgraph PICU[Plateforme PICU]
+        UC1[Enregistrer patient et visite]
+        UC2[Rechercher et dédupliquer patient]
+        UC3[Appeler le patient]
+        UC4[Valider le triage et la priorité]
+        UC5[Consulter les worklists]
+        UC6[Placer ou transférer un lit]
+        UC7[Libérer et remettre en service un lit]
+        UC8[Démarrer et documenter la consultation]
+        UC9[Demander et clôturer un examen]
+        UC10[Décider l'issue et clôturer la visite]
+        UC11[Superviser le tableau de bord]
+        UC12[Reconnaître les alertes opérationnelles]
+        UC13[Approuver une action IA]
+        UC14[Passer le relais entre équipes]
+        UC15[Gérer les comptes et les rôles]
+        UC16[S'abonner aux événements temps réel]
+    end
+
+    Receptionist --> UC1
+    Receptionist --> UC2
+    Receptionist --> UC3
+    Receptionist --> UC5
+    Receptionist --> UC16
+
+    Nurse --> UC4
+    Nurse --> UC5
+    Nurse --> UC6
+    Nurse --> UC7
+    Nurse --> UC16
+
+    Doctor --> UC5
+    Doctor --> UC8
+    Doctor --> UC9
+    Doctor --> UC10
+    Doctor --> UC16
+
+    Chief --> UC11
+    Chief --> UC12
+    Chief --> UC6
+    Chief --> UC10
+    Chief --> UC13
+    Chief --> UC14
+    Chief --> UC16
+
+    Admin --> UC15
+    Admin --> UC11

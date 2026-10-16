@@ -1,0 +1,94 @@
+\chapter*{Annexes}
+\addcontentsline{toc}{chapter}{Annexes}
+
+\section{Annexe A — Diagrammes UML}
+
+Diagrammes de cas d'utilisation, de séquence, d'activité et de classes réalisés avec Draw.io / Mermaid. Voir figures~\ref{fig:use_case_diagram},~\ref{fig:sequence_diagram},~\ref{fig:activity_diagram} et~\ref{fig:class_diagram} (chapitres 2 et 3).
+
+\section{Annexe B — Modèle de base de données}
+
+Le schéma PostgreSQL est décrit par les migrations versionnées du dossier \texttt{backend/migrations/}, appliquées par des scripts dédiés. Le dictionnaire de données est présenté au tableau~\ref{tab:data_dictionary} (chapitre 3).
+
+\section{Annexe C — Documentation des API}
+
+Les points d'entrée REST sont regroupés par domaine. Extrait des principaux endpoints :
+
+\begin{itemize}
+    \item \texttt{POST /api/auth/login} — authentification (JWT) ;
+    \item \texttt{POST /api/visits/register} — enregistrement patient + visite ;
+    \item \texttt{POST /api/visits/:id/call} — appel du patient ;
+    \item \texttt{POST /api/visits/:id/place} — affectation à une ressource ;
+    \item \texttt{POST /api/visits/:id/start} — démarrage de la consultation ;
+    \item \texttt{PATCH /api/visits/:id/priority} — triage / priorité ;
+    \item \texttt{POST /api/visits/:id/close} — clôture avec outcome ;
+    \item \texttt{GET /api/queue/worklists} — listes de travail ;
+    \item \texttt{GET /api/resources/board} — état des ressources ;
+    \item \texttt{GET /api/resources/eligible} — ressources affectables ;
+    \item \texttt{POST /api/care/visits/:id/triage} — triage structuré ;
+    \item \texttt{POST /api/care/visits/:id/transfer} — demande de transfert ;
+    \item \texttt{GET /api/chief/*} — supervision (pipeline, SLA, alertes) ;
+    \item \texttt{GET /api/events/stream} — flux temps réel ;
+    \item \texttt{GET /api/ai/recommendations} — recommandations IA.
+\end{itemize}
+
+\section{Annexe D — Captures d'écran de la plateforme}
+
+Les captures d'écran sont à déposer dans le dossier \texttt{rapport-stage/images/} avec les noms ci-dessous. Elles apparaissent automatiquement dans les figures du rapport (voir figure~\ref{fig:login_screen},~\ref{fig:dashboard_receptionniste},~\ref{fig:dashboard_infirmier},~\ref{fig:dashboard_medecin},~\ref{fig:dashboard_chef} et~\ref{fig:dashboard_admin}).
+
+\begin{itemize}
+    \item \texttt{login\_screen.png} — page de connexion ;
+    \item \texttt{dashboard\_receptionniste.png} — dashboard Accueil ;
+    \item \texttt{dashboard\_infirmier.png} — dashboard Infirmier (triage, plan des lits) ;
+    \item \texttt{dashboard\_medecin.png} — dashboard Médecin ;
+    \item \texttt{dashboard\_chef.png} — dashboard Chef de service (supervision) ;
+    \item \texttt{dashboard\_admin.png} — dashboard Administrateur ;
+    \item \texttt{architecture\_picu.png} — architecture en trois couches.
+\end{itemize}
+
+\section{Annexe E — Scénarios et commandes de test}
+
+\paragraph{Invariants de ressources (\texttt{npm run test:v4})}
+Vérifie qu'un lit en nettoyage ne peut être affecté, que la libération le bascule en nettoyage et que la transition directe vers « prêt » est refusée.
+
+\paragraph{Règles de supervision (\texttt{npm run test:supervision})}
+Vérifie qu'aucun seuil SLA non approuvé n'est activé.
+
+\paragraph{Intelligence d'enregistrement (\texttt{npm run test:registration})}
+Vérifie les indices d'enregistrement (motif à risque, ambulance, priorité élevée) sans modification de la priorité clinique.
+
+\paragraph{Benchmark de triage}
+\texttt{node benchmarks/run-triage-benchmark.js} mesure la latence du modèle NIM sur un jeu de cas et enregistre les résultats.
+
+\section{Annexe F — Matrice de traçabilité complète}
+
+\begin{table}[H]
+\centering
+\caption{Matrice Exigence $\rightarrow$ Implémentation $\rightarrow$ Test}
+\label{tab:matrice_complete}
+\small
+\begin{tabular}{|p{3.8cm}|p{5cm}|p{4.4cm}|}
+\hline
+\textbf{Exigence} & \textbf{Implémentation} & \textbf{Validation} \\
+\hline
+Une visite active par patient & \texttt{visitService.registerVisitTransaction} & Conflit 409 \\
+\hline
+Un patient par ressource & \texttt{assertBedAssignable} + verrou & Test concurrence (T6) \\
+\hline
+Transitions autorisées & \texttt{visitService}, \texttt{careStage} & Tests par rôle \\
+\hline
+Ressource non affectable si nettoyage & \texttt{resourceService} & \texttt{test:v4} (T1) \\
+\hline
+Remise en service contrôlée & \texttt{setOperationalStatus} & \texttt{test:v4} (T3) \\
+\hline
+Seuils SLA approuvés uniquement & \texttt{supervisionRulesService} & \texttt{test:supervision} (T4) \\
+\hline
+Indices d'enregistrement & \texttt{registrationHints} & \texttt{test:registration} (T5) \\
+\hline
+Idempotence des actions & \texttt{findIdempotentActionResult} & Test idempotence (T7) \\
+\hline
+Approbation des actions IA & \texttt{action-policy} & Tests de politique IA \\
+\hline
+Traçabilité & \texttt{visit\_events} & Parcours E2E (T8) \\
+\hline
+\end{tabular}
+\end{table}

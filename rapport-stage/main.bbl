@@ -1,0 +1,61 @@
+\begin{thebibliography}{10}
+
+\bibitem{expressjs}
+Express.js Foundation.
+\newblock {\em Express.js - Node.js web application framework}, 2024.
+\newblock Documentation officielle.
+
+\bibitem{nodejs}
+OpenJS Foundation.
+\newblock {\em Node.js - JavaScript runtime built on Chrome's V8 JavaScript
+  engine}, 2024.
+\newblock Documentation officielle.
+
+\bibitem{postgresql}
+PostgreSQL Global~Development Group.
+\newblock {\em PostgreSQL - The World's Most Advanced Open Source Relational
+  Database}, 2024.
+\newblock Documentation officielle.
+
+\bibitem{jwt}
+IETF.
+\newblock {\em JSON Web Token (JWT)}, 2015.
+\newblock RFC 7519.
+
+\bibitem{tailwindcss}
+Tailwind Labs.
+\newblock {\em Tailwind CSS - A utility-first CSS framework}, 2024.
+\newblock Documentation officielle.
+
+\bibitem{react}
+Meta.
+\newblock {\em React - A JavaScript library for building user interfaces},
+  2024.
+\newblock Documentation officielle.
+
+\bibitem{neon}
+Neon.
+\newblock {\em Neon - Serverless Postgres}, 2025.
+\newblock Documentation officielle.
+
+\bibitem{nim}
+NVIDIA.
+\newblock {\em NVIDIA NIM - Inference Microservices}, 2025.
+\newblock Documentation officielle.
+
+\bibitem{socketio}
+Socket.IO.
+\newblock {\em Socket.IO - Bidirectional and low-latency communication}, 2024.
+\newblock Documentation officielle.
+
+\bibitem{reactrouter}
+React Training.
+\newblock {\em React Router - Declarative routing for React}, 2024.
+\newblock Documentation officielle.
+
+\bibitem{vite}
+Evan You.
+\newblock {\em Vite - Next Generation Frontend Tooling}, 2024.
+\newblock Documentation officielle.
+
+\end{thebibliography}

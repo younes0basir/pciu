@@ -4,14 +4,15 @@ const {
   placeVisit,
   startConsultation,
   updateConsultation,
-  updateVisitPriority,
   closeVisit,
   returnVisit,
 } = require('./visitService');
+const { recordTriage } = require('./triageService');
+const { transferResource } = require('./resourceService');
 
 /**
- * Stable tool surface for future orchestrator / agents.
- * Uses the same visitService transactions and permissions as the HTTP API.
+ * Stable tool surface for orchestrator / AI Action Gateway.
+ * Same domain services as the HTTP API — see docs/AGENT-VISIT-TOOLS.md.
  */
 function createVisitTools(actorUser, actionContext = {}) {
   const ctx = actionContext;
@@ -21,7 +22,8 @@ function createVisitTools(actorUser, actionContext = {}) {
     place: (visitId, bedId) => placeVisit(visitId, bedId, actorUser, ctx),
     start: (visitId, data) => startConsultation(visitId, actorUser, data, ctx),
     fill: (visitId, data) => updateConsultation(visitId, data, actorUser, ctx),
-    triage: (visitId, data) => updateVisitPriority(visitId, data, actorUser, ctx),
+    triage: (visitId, data) => recordTriage(visitId, data, actorUser, ctx),
+    transfer: (visitId, bedId) => transferResource(visitId, bedId, actorUser, ctx),
     close: (visitId, data) => closeVisit(visitId, data, actorUser, ctx),
     return: (visitId, data) => returnVisit(visitId, data, actorUser, ctx),
   };

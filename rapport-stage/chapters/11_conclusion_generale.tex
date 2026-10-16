@@ -1,0 +1,14 @@
+\chapter*{Conclusion générale}
+\addcontentsline{toc}{chapter}{Conclusion générale}
+
+Le projet PICU (Plateforme Intelligente de Coordination des Urgences) avait pour ambition de répondre aux difficultés organisationnelles du service des urgences du CHU Hassan II de Fès. Au terme de ce stage, la contribution principale ne réside pas dans l'ajout d'un écran, mais dans la formalisation d'un \textbf{workflow transactionnel explicite} : une machine à états de la visite, des transitions autorisées, des priorités cliniques structurées, des files d'attente calculées et une gestion des ressources verrouillée en base de données.
+
+La plateforme réalisée couvre l'ensemble du parcours patient, de l'accueil à la clôture, complétée par des modules avancés : triage structuré et historisé, cycle de vie des lits, demandes de transfert et de relève, examens et tâches de soin, supervision opérationnelle avec indicateurs SLA et alertes, et tableaux de bord par rôle. La communication temps réel, assurée par Socket.IO avec un repli par interrogation périodique, garantit une vision partagée entre tous les postes.
+
+L'accent mis sur l'ingénierie logicielle se traduit par des choix vérifiables : transactions PostgreSQL et verrous pour prévenir les conflits d'affectation, clés d'idempotence contre les doublons, contrôle d'accès par rôle et capacités, piste d'audit exhaustive, tests automatisés des invariants critiques et un pipeline d'intégration continue protégeant les secrets. Les cas d'étude de concurrence et d'intégrité constituent une preuve concrète de la robustesse du socle.
+
+La couche d'assistance IA fondée sur NVIDIA NIM, tenue volontairement sous supervision humaine, ouvre une perspective prometteuse : assister le triage et l'organisation des lits sans jamais se substituer à la décision clinique. Sa validation rigoureuse, en mode shadow puis encadré, constitue la prochaine étape naturelle.
+
+Enfin, ce rapport s'est attaché à distinguer clairement ce qui est \textbf{réalisé et évalué} de ce qui demeure \textbf{exploratoire}, condition indispensable pour une application de santé. Les limites identifiées — absence de déploiement clinique, CI/CD à compléter, interopérabilité SIH à bâtir — dessinent une feuille de route cohérente vers une plateforme plus complète et, à terme, validée par les équipes médicales.
+
+Ce stage a confirmé l'importance d'une démarche d'ingénierie structurée et du dialogue entre informaticiens et professionnels de santé pour concevoir des solutions véritablement adaptées au terrain clinique.

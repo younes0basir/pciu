@@ -51,7 +51,7 @@ export function CapacityBanner() {
   const m = data.metrics || {}
 
   return (
-    <div className={`flex flex-wrap items-center gap-3 rounded-2xl border px-4 py-3 ${tone}`}>
+    <div className={`flex flex-wrap items-center gap-3 rounded-2xl border px-4 py-3 shadow-sm ${tone}`}>
       <Activity className="size-5 shrink-0 opacity-80" aria-hidden />
       <div className="min-w-0 flex-1">
         <p className="text-sm font-extrabold">{LABEL[data.loadStatus] || data.loadStatus}</p>

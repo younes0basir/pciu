@@ -4,10 +4,12 @@ import { BedDouble, Search } from 'lucide-react'
 import { priorityBadgeClass, statusLabel } from '@/components/chief/chiefUtils.js'
 import { dashboardInputClass } from '@/components/layout/dashboardStyles.js'
 import { cn } from '@/lib/utils.js'
+import { bedOperationalLabel, isBedImmediatelyAvailable } from '@/lib/resourceUtils.js'
 
 const STATUS_FILTERS = [
   { id: 'all', label: 'Tous' },
-  { id: 'free', label: 'Libres' },
+  { id: 'available', label: 'Disponibles' },
+  { id: 'cleaning', label: 'Nettoyage' },
   { id: 'occupied', label: 'Occupés' },
   { id: 'urgent', label: 'Urgents' },
 ]
@@ -28,16 +30,7 @@ function occupancyTone(ratio) {
 
 function bedStatusText(bed) {
   if (!bed.occupied) {
-    if (bed.operationalStatus && bed.operationalStatus !== 'ready') {
-      const labels = {
-        cleaning: 'Nettoyage',
-        maintenance: 'Maintenance',
-        blocked: 'Bloqué',
-        out_of_service: 'Hors service',
-      }
-      return labels[bed.operationalStatus] || bed.operationalStatus
-    }
-    return 'Libre'
+    return bedOperationalLabel(bed)
   }
   if (bed.careStage === 'in_care') return 'Soins'
   if (bed.careStage === 'in_observation') return 'Observation'
@@ -143,12 +136,13 @@ function deriveZoneOptions(beds, zones) {
 
 function BedTile({ bed, isMine, interactive, actionLabel, onClick }) {
   const occupied = Boolean(bed.occupied)
+  const available = isBedImmediatelyAvailable(bed)
   const urgent = isUrgent(bed)
   const clock = formatClock(bed.assignedAt)
   const Tag = interactive ? 'button' : 'div'
   const detail = occupied
     ? [bed.publicCode, bedStatusText(bed), clock].filter(Boolean).join(' · ')
-    : actionLabel || 'Libre'
+    : actionLabel || bedStatusText(bed)
 
   return (
     <li>
@@ -162,7 +156,11 @@ function BedTile({ bed, isMine, interactive, actionLabel, onClick }) {
         }
         className={cn(
           'flex min-h-16 w-full overflow-hidden rounded-2xl border bg-white text-left shadow-sm shadow-slate-900/5',
-          occupied ? 'border-slate-200' : 'border-dashed border-emerald-300/90 bg-white/80',
+          occupied
+            ? 'border-slate-200'
+            : available
+              ? 'border-dashed border-emerald-300/90 bg-white/80'
+              : 'border-dashed border-amber-300/90 bg-amber-50/40',
           interactive &&
             'cursor-pointer transition hover:border-sky-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-500/25 motion-safe:hover:-translate-y-0.5 motion-safe:active:translate-y-0',
           !interactive && occupied && 'opacity-95'
@@ -221,7 +219,16 @@ function BedTile({ bed, isMine, interactive, actionLabel, onClick }) {
   )
 }
 
-function RoomBay({ room, zone, highlightRoomId, assignFreeBeds, restrictOccupiedToRoom, onSelectOccupied, onSelectFree }) {
+function RoomBay({
+  room,
+  zone,
+  highlightRoomId,
+  assignFreeBeds,
+  restrictOccupiedToRoom,
+  onSelectOccupied,
+  onSelectFree,
+  onSelectResource,
+}) {
   const isMine = highlightRoomId != null && Number(room.roomId) === Number(highlightRoomId)
   const occupied = room.beds.filter((bed) => bed.occupied).length
   const total = room.beds.length
@@ -276,9 +283,18 @@ function RoomBay({ room, zone, highlightRoomId, assignFreeBeds, restrictOccupied
       <ul className="bed-plan-floor grid grid-cols-1 gap-2 p-3 @sm:grid-cols-2">
         {room.beds.map((bed) => {
           const canOpen = Boolean(bed.occupied && bed.visitId && onSelectOccupied && (!restrictOccupiedToRoom || isMine))
-          const canAssign = Boolean(assignFreeBeds && !bed.occupied && onSelectFree)
-          const interactive = canOpen || canAssign
-          const actionLabel = canOpen ? 'Ouvrir le dossier' : canAssign ? 'Affecter un patient' : 'Disponible'
+          const canAssign = Boolean(
+            assignFreeBeds && isBedImmediatelyAvailable(bed) && onSelectFree,
+          )
+          const canDetail = Boolean(onSelectResource)
+          const interactive = canOpen || canAssign || canDetail
+          const actionLabel = canOpen
+            ? 'Ouvrir le dossier'
+            : canAssign
+              ? 'Affecter un patient'
+              : canDetail
+                ? 'Détails de la ressource'
+                : bedStatusText(bed)
           return (
             <BedTile
               key={bed.bedId}
@@ -289,6 +305,7 @@ function RoomBay({ room, zone, highlightRoomId, assignFreeBeds, restrictOccupied
               onClick={() => {
                 if (canOpen) onSelectOccupied(bed.visitId)
                 else if (canAssign) onSelectFree(bed)
+                else if (canDetail) onSelectResource(bed)
               }}
             />
           )
@@ -304,6 +321,7 @@ export function BedPlanPanel({
   highlightRoomId,
   onSelectOccupied,
   onSelectFree,
+  onSelectResource,
   assignFreeBeds = true,
   restrictOccupiedToRoom = false,
   title = 'Salles & lits — hôpital',
@@ -327,7 +345,10 @@ export function BedPlanPanel({
 
   const visible = useMemo(() => {
     return scoped.filter((bed) => {
-      if (statusFilter === 'free') return !bed.occupied
+      if (statusFilter === 'available') return isBedImmediatelyAvailable(bed)
+      if (statusFilter === 'cleaning') {
+        return !bed.occupied && bed.operationalStatus === 'cleaning'
+      }
       if (statusFilter === 'occupied') return bed.occupied
       if (statusFilter === 'urgent') return isUrgent(bed)
       return true
@@ -336,10 +357,15 @@ export function BedPlanPanel({
 
   const counts = useMemo(() => {
     const occupied = allBeds.filter((bed) => bed.occupied).length
+    const available = allBeds.filter((bed) => isBedImmediatelyAvailable(bed)).length
+    const cleaning = allBeds.filter(
+      (bed) => !bed.occupied && bed.operationalStatus === 'cleaning',
+    ).length
     return {
       total: allBeds.length,
       occupied,
-      free: allBeds.length - occupied,
+      available,
+      cleaning,
       urgent: allBeds.filter(isUrgent).length,
     }
   }, [allBeds])
@@ -351,7 +377,10 @@ export function BedPlanPanel({
     })
     return {
       all: base.length,
-      free: base.filter((bed) => !bed.occupied).length,
+      available: base.filter((bed) => isBedImmediatelyAvailable(bed)).length,
+      cleaning: base.filter(
+        (bed) => !bed.occupied && bed.operationalStatus === 'cleaning',
+      ).length,
       occupied: base.filter((bed) => bed.occupied).length,
       urgent: base.filter(isUrgent).length,
       mine: base.filter((bed) => Number(bed.roomId) === Number(highlightRoomId)).length,
@@ -385,18 +414,22 @@ export function BedPlanPanel({
             <h2 className="mt-1 text-xl font-extrabold tracking-tight text-slate-900">{title}</h2>
             <p className="mt-1 max-w-2xl text-sm font-medium text-slate-600">
               {subtitle ??
-                `${counts.free} libre${counts.free === 1 ? '' : 's'} · ${counts.occupied} occupé${counts.occupied === 1 ? '' : 's'}`}
+                `${counts.available} disponible${counts.available === 1 ? '' : 's'} · ${counts.cleaning} nettoyage · ${counts.occupied} occupé${counts.occupied === 1 ? '' : 's'}`}
             </p>
           </div>
-          <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:min-w-[28rem]">
+          <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5 lg:min-w-[32rem]">
             <div className="rounded-2xl bg-slate-50 px-3 py-2.5">
               <dt className="text-xs font-bold tracking-wide text-slate-500 uppercase">Occupation</dt>
               <dd className="mt-0.5 text-2xl font-extrabold tabular-nums text-slate-900">{pct}%</dd>
               <dd className={cn('text-xs font-extrabold', tone.text)}>{tone.label}</dd>
             </div>
             <div className="rounded-2xl bg-emerald-50 px-3 py-2.5">
-              <dt className="text-xs font-bold tracking-wide text-emerald-800 uppercase">Libres</dt>
-              <dd className="mt-0.5 text-2xl font-extrabold tabular-nums text-emerald-950">{counts.free}</dd>
+              <dt className="text-xs font-bold tracking-wide text-emerald-800 uppercase">Disponibles</dt>
+              <dd className="mt-0.5 text-2xl font-extrabold tabular-nums text-emerald-950">{counts.available}</dd>
+            </div>
+            <div className="rounded-2xl bg-amber-50 px-3 py-2.5">
+              <dt className="text-xs font-bold tracking-wide text-amber-800 uppercase">Nettoyage</dt>
+              <dd className="mt-0.5 text-2xl font-extrabold tabular-nums text-amber-950">{counts.cleaning}</dd>
             </div>
             <div className="rounded-2xl bg-sky-50 px-3 py-2.5">
               <dt className="text-xs font-bold tracking-wide text-sky-800 uppercase">Occupés</dt>
@@ -569,6 +602,7 @@ export function BedPlanPanel({
                     restrictOccupiedToRoom={restrictOccupiedToRoom}
                     onSelectOccupied={onSelectOccupied}
                     onSelectFree={onSelectFree}
+                    onSelectResource={onSelectResource}
                   />
                 ))}
               </div>

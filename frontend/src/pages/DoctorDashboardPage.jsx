@@ -1,19 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BedDouble, HeartPulse, LayoutList, Search } from 'lucide-react'
+import { BedDouble, HeartPulse, LayoutList } from 'lucide-react'
 
-import { RoleDashboardHeader } from '@/components/layout/RoleDashboardHeader.jsx'
+import { AppShell } from '@/components/layout/AppShell.jsx'
 import { DashboardAlert } from '@/components/layout/DashboardAlert.jsx'
-import { DashboardMain } from '@/components/layout/DashboardMain.jsx'
-import { DashboardPageIntro } from '@/components/layout/DashboardPageIntro.jsx'
-import { DashboardShell } from '@/components/layout/DashboardShell.jsx'
-import { DashboardTabBar } from '@/components/layout/DashboardTabBar.jsx'
-import { dashboardInputClass, dashboardSelectClass } from '@/components/layout/dashboardStyles.js'
+import { DashboardPageHeader } from '@/components/layout/DashboardPageHeader.jsx'
 import { ChiefVisitDrawer } from '@/components/chief/ChiefVisitDrawer.jsx'
 import { ClinicianKpiBar } from '@/components/clinician/ClinicianKpiBar.jsx'
 import { ClinicianRoomBoard } from '@/components/clinician/ClinicianRoomBoard.jsx'
-import { AccueilKpiBar } from '@/components/accueil/AccueilKpiBar.jsx'
-import { AccueilPipelineColumn } from '@/components/accueil/AccueilPipelineColumn.jsx'
-import { AccueilQueueList } from '@/components/accueil/AccueilQueueList.jsx'
+import { QueueWorkspace } from '@/components/accueil/QueueWorkspace.jsx'
 import {
   boardVisitToCard,
   computeAccueilStats,
@@ -25,11 +19,29 @@ import { useClinicianDashboard } from '@/hooks/useClinicianDashboard.js'
 
 const DOCTOR_ROLE = 'doctor'
 
-const TABS = [
+const NAV_ITEMS = [
   { id: 'room', label: 'Ma salle', icon: HeartPulse },
   { id: 'beds', label: 'Plan des lits', icon: BedDouble },
   { id: 'queue', label: 'File d’attente', icon: LayoutList },
 ]
+
+const WORKSPACE_META = {
+  room: {
+    title: 'Poste médecin',
+    badge: 'Ma salle',
+    description: 'Suivi des consultations et de l’occupation de votre salle.',
+  },
+  beds: {
+    title: 'Plan des lits',
+    badge: 'Vue hôpital',
+    description: 'Cartographie des lits — ouvrez uniquement les patients de votre salle.',
+  },
+  queue: {
+    title: 'File d’attente',
+    badge: 'Lecture seule',
+    description: 'Anticiper l’afflux vers votre salle (file gérée par accueil et infirmier).',
+  },
+}
 
 export default function DoctorDashboardPage() {
   const {
@@ -57,7 +69,7 @@ export default function DoctorDashboardPage() {
     logout,
   } = useClinicianDashboard(DOCTOR_ROLE)
 
-  const [activeTab, setActiveTab] = useState('room')
+  const [activeWorkspace, setActiveWorkspace] = useState('room')
   const [search, setSearch] = useState('')
   const [priorityFilter, setPriorityFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -84,6 +96,19 @@ export default function DoctorDashboardPage() {
     return { uncalled, called }
   }, [filteredWaiting])
 
+  const formattedLastUpdated = useMemo(() => {
+    if (!workspace?.timestamp) return null
+    return new Date(workspace.timestamp).toLocaleTimeString('fr-FR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    })
+  }, [workspace?.timestamp])
+
+  const roomMeta = workspace?.assignment?.roomName
+    ? ` · Salle ${workspace.assignment.roomName}`
+    : ''
+
   useEffect(() => {
     document.title = 'Médecin · PICU CARE'
   }, [])
@@ -92,44 +117,53 @@ export default function DoctorDashboardPage() {
     setDrawerVisitId(visitId)
   }
 
-  return (
-    <DashboardShell role={DOCTOR_ROLE}>
-        <RoleDashboardHeader
-          role={DOCTOR_ROLE}
-          subtitle="Consultations, clôtures et vue file — salle assignée"
-          backendHealth={backendHealth}
-          refreshing={refreshing}
-          onRefresh={() => loadWorkspace(true)}
-          user={auth?.user}
-          onLogout={logout}
-        />
+  const meta = WORKSPACE_META[activeWorkspace] ?? WORKSPACE_META.room
 
-        <DashboardMain narrow>
-        <DashboardPageIntro
-          title="Poste médecin"
-          description="Suivi des consultations et de l’occupation de votre salle."
-          meta={`Dernière mise à jour ${workspace?.timestamp ? new Date(workspace.timestamp).toLocaleTimeString('fr-FR') : '—'}${workspace?.assignment?.roomName ? ` · Salle ${workspace.assignment.roomName}` : ''}`}
-          tabs={
-            <DashboardTabBar
-              role={DOCTOR_ROLE}
-              tabs={TABS}
-              activeId={activeTab}
-              onChange={setActiveTab}
-              ariaLabel="Sections médecin"
-            />
+  return (
+    <AppShell
+      role={DOCTOR_ROLE}
+      user={auth?.user}
+      backendHealth={backendHealth}
+      refreshing={refreshing}
+      onRefresh={() => loadWorkspace(true)}
+      onLogout={logout}
+      searchValue={search}
+      onSearchChange={activeWorkspace === 'queue' ? setSearch : undefined}
+      searchPlaceholder="Recherche patient (Nom, code, CIN…)"
+      navItems={NAV_ITEMS}
+      activeNavId={activeWorkspace}
+      onSelectNav={setActiveWorkspace}
+      lastUpdated={formattedLastUpdated}
+    >
+      <div className="space-y-4">
+        <DashboardPageHeader
+          title={meta.title}
+          badge={meta.badge}
+          description={meta.description}
+          meta={roomMeta}
+          actions={
+            activeWorkspace !== 'room' ? (
+              <button
+                type="button"
+                onClick={() => setActiveWorkspace('room')}
+                className="text-xs font-bold text-primary hover:underline"
+              >
+                Retour à ma salle
+              </button>
+            ) : null
           }
         />
 
-          {error ? <DashboardAlert variant="error">{error}</DashboardAlert> : null}
+        {error ? <DashboardAlert variant="error">{error}</DashboardAlert> : null}
 
-          {loading && !workspace ? (
-            <p className="text-sm font-semibold text-slate-500">Chargement du poste médecin…</p>
-          ) : (
-            <>
-              <ClinicianKpiBar stats={workspace?.stats} role={DOCTOR_ROLE} />
-
-              {activeTab === 'room' ? (
-                <div className="space-y-5">
+        {loading && !workspace ? (
+          <p className="text-sm font-semibold text-text-secondary">Chargement du poste médecin…</p>
+        ) : (
+          <>
+            {activeWorkspace === 'room' ? (
+              <>
+                <ClinicianKpiBar stats={workspace?.stats} role={DOCTOR_ROLE} />
+                <div className="space-y-4">
                   <DoctorCaseloadPanel
                     pending={workspace?.pendingConsultation ?? []}
                     active={workspace?.activeConsultation ?? []}
@@ -142,112 +176,76 @@ export default function DoctorDashboardPage() {
                     onSelectVisit={openVisit}
                   />
                 </div>
-              ) : null}
+              </>
+            ) : null}
 
-              {activeTab === 'beds' ? (
-                <NurseBedMapPanel
-                  beds={workspace?.allBeds ?? []}
-                  zones={workspace?.zones ?? []}
-                  highlightRoomId={workspace?.assignment?.roomId}
-                  assignFreeBeds={false}
-                  restrictOccupiedToRoom
-                  title="Plan des lits"
-                  subtitle={`Vue hôpital · ouvrez uniquement les patients de votre salle · ${workspace?.stats?.hospitalBedsFree ?? 0} lit(s) libre(s) au total`}
-                  onSelectOccupied={openVisit}
-                />
-              ) : null}
+            {activeWorkspace === 'beds' ? (
+              <NurseBedMapPanel
+                beds={workspace?.allBeds ?? []}
+                zones={workspace?.zones ?? []}
+                highlightRoomId={workspace?.assignment?.roomId}
+                assignFreeBeds={false}
+                restrictOccupiedToRoom
+                title="Plan des lits"
+                subtitle={`Vue hôpital · ouvrez uniquement les patients de votre salle · ${workspace?.stats?.hospitalBedsFree ?? 0} lit(s) libre(s) au total`}
+                onSelectOccupied={openVisit}
+              />
+            ) : null}
 
-              {activeTab === 'queue' ? (
-                <div className="space-y-5">
+            {activeWorkspace === 'queue' ? (
+              <QueueWorkspace
+                stats={queueStats}
+                pipeline={pipeline}
+                filteredWaiting={filteredWaiting}
+                priorityFilter={priorityFilter}
+                statusFilter={statusFilter}
+                onPriorityFilterChange={setPriorityFilter}
+                onStatusFilterChange={setStatusFilter}
+                onSelectVisit={openVisit}
+                uncalledTitle="En attente"
+                uncalledSubtitle="Non appelés"
+                calledTitle="En attente"
+                calledSubtitle="Appelés — placement infirmier"
+                leading={
                   <DashboardAlert variant="info">
-                    Lecture seule — la file est gérée par l’accueil et l’infirmier. Utile pour anticiper
-                    l’afflux vers votre salle.
+                    Lecture seule — la file est gérée par l’accueil et l’infirmier. Utile pour
+                    anticiper l’afflux vers votre salle.
                   </DashboardAlert>
+                }
+              />
+            ) : null}
+          </>
+        )}
+      </div>
 
-                  <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-                    <div className="relative flex-1 sm:max-w-xs">
-                      <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
-                      <input
-                        type="search"
-                        value={search}
-                        onChange={(event) => setSearch(event.target.value)}
-                        placeholder="Nom, code, CIN…"
-                        className={`${dashboardInputClass} pl-10`}
-                      />
-                    </div>
-                    <select
-                      value={priorityFilter}
-                      onChange={(event) => setPriorityFilter(event.target.value)}
-                      className={dashboardSelectClass}
-                    >
-                      <option value="all">Toutes priorités</option>
-                      <option value="2">P1–P2</option>
-                      <option value="3">P1–P3</option>
-                      <option value="5">P1–P5</option>
-                    </select>
-                    <select
-                      value={statusFilter}
-                      onChange={(event) => setStatusFilter(event.target.value)}
-                      className={dashboardSelectClass}
-                    >
-                      <option value="all">Tous</option>
-                      <option value="uncalled">Non appelés</option>
-                      <option value="called">Appelés</option>
-                    </select>
-                  </div>
-
-                  <AccueilKpiBar stats={queueStats} />
-
-                  <div className="grid gap-3 lg:grid-cols-2">
-                    <AccueilPipelineColumn
-                      title="En attente"
-                      subtitle="Non appelés"
-                      visits={pipeline.uncalled}
-                      tone="slate"
-                    />
-                    <AccueilPipelineColumn
-                      title="En attente"
-                      subtitle="Appelés — placement infirmier"
-                      visits={pipeline.called}
-                      tone="amber"
-                    />
-                  </div>
-
-                  <AccueilQueueList visits={filteredWaiting} />
-                </div>
-              ) : null}
-            </>
-          )}
-        </DashboardMain>
-
-        <ChiefVisitDrawer
-          open={Boolean(drawerVisitId)}
-          loading={drawerLoading}
-          detail={drawerDetail}
-          actionBusy={actionBusy}
-          onClose={() => setDrawerVisitId(null)}
-          clinicians={clinicians}
-          currentUserId={auth?.user?.id}
-          roomTeam={roomTeam}
-          consultationMode="doctor"
-          allowCall={false}
-          allowPlace={false}
-          allowReturn={false}
-          allowClose
-          allowConsultation
-          allowTriage={false}
-          onOpenConsultation={handleOpenConsultation}
-          onSaveConsultation={handleSaveConsultation}
-          onCloseVisit={handleCloseVisit}
-          allowCareFlow
-          allowObservation
-          allowCompleteDeparture
-          onStartObservation={handleStartObservation}
-          onEndObservation={handleEndObservation}
-          onCompleteDeparture={handleCompleteDeparture}
-          allowExamActions
-          onRecordMutated={refreshDrawerDetail}
-        />
-    </DashboardShell>
+      <ChiefVisitDrawer
+        open={Boolean(drawerVisitId)}
+        loading={drawerLoading}
+        detail={drawerDetail}
+        actionBusy={actionBusy}
+        onClose={() => setDrawerVisitId(null)}
+        clinicians={clinicians}
+        currentUserId={auth?.user?.id}
+        roomTeam={roomTeam}
+        consultationMode="doctor"
+        allowCall={false}
+        allowPlace={false}
+        allowReturn={false}
+        allowClose
+        allowConsultation
+        allowTriage={false}
+        onOpenConsultation={handleOpenConsultation}
+        onSaveConsultation={handleSaveConsultation}
+        onCloseVisit={handleCloseVisit}
+        allowCareFlow
+        allowObservation
+        allowCompleteDeparture
+        onStartObservation={handleStartObservation}
+        onEndObservation={handleEndObservation}
+        onCompleteDeparture={handleCompleteDeparture}
+        allowExamActions
+        onRecordMutated={refreshDrawerDetail}
+      />
+    </AppShell>
   )
 }

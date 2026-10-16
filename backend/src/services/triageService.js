@@ -85,13 +85,18 @@ async function recordTriage(visitId, data, actorUser, actionContext = {}) {
            care_stage = $2,
            current_orientation = COALESCE($3, current_orientation),
            patient_location = COALESCE($4, patient_location),
+           clinical_priority_validated_at = CASE
+             WHEN $5::text = 'initial' THEN COALESCE(clinical_priority_validated_at, NOW())
+             ELSE clinical_priority_validated_at
+           END,
            updated_at = NOW()
-       WHERE id = $5`,
+       WHERE id = $6`,
       [
         priority,
         targetCareStage,
         orientation,
         orientation === 'critical' ? 'room' : 'triage',
+        assessmentType,
         visitId,
       ],
     );

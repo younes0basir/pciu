@@ -1,0 +1,41 @@
+%% AS-IS - Machine a etats reelle (deux mecanismes paralleles)
+%% care_stage controle par careService/triageService (assertCareStageTransition)
+%% mais ecrit directement par visitService (place/start/close/return) -> contournement
+stateDiagram-v2
+    [*] --> registered: registerVisit / registerVisit
+    registered --> triage_pending: registerVisit (defaut)
+    registered --> waiting_care
+    registered --> in_care
+
+    triage_pending --> waiting_care: recordTriage initial
+    triage_pending --> in_care: startConsultation
+    triage_pending --> completed: completeVisit
+
+    waiting_care --> in_care: placeVisit / startConsultation
+    waiting_care --> in_observation: startObservation
+    waiting_care --> disposition_pending: decideDisposition
+    waiting_care --> completed: closeVisit
+
+    in_care --> in_observation: startObservation
+    in_care --> disposition_pending: decideDisposition
+    in_care --> completed: completeVisit / closeVisit
+    in_care --> waiting_care: returnVisit
+
+    in_observation --> in_care: endObservation / startConsultation
+    in_observation --> disposition_pending: decideDisposition
+    in_observation --> completed: completeVisit
+    in_observation --> waiting_care: returnVisit
+
+    disposition_pending --> completed: completeVisit
+    disposition_pending --> in_care: decideDisposition reversal
+    disposition_pending --> in_observation
+
+    completed --> [*]
+
+    note right of registered
+        visits.status parallele:
+        waiting / placed / in_treatment /
+        discharged / transferred / left_without_seen
+        NON contraint par la base (sauf closed_at)
+        visitService ecrit care_stage SANS assertCareStageTransition
+    end note

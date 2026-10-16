@@ -1,0 +1,21 @@
+flowchart TD
+    Start([Patient arrive]) --> Reg[Enregistrement\nvisitService.registerVisit]
+    Reg --> WaitTri[status=waiting\ncare_stage=triage_pending]
+    WaitTri --> Call[Appel patient\ncallVisit]
+    Call --> Tri{Triage infirmier ?}
+    Tri -->|non bloquant| WaitCare[care_stage=waiting_care]
+    Tri -->|priorité validée| WaitCare
+    WaitCare --> Decide{Lit disponible ?}
+    Decide -->|oui| Place[placeVisit\nstatus=placed]
+    Decide -->|non| WaitCare
+    Place --> Start[Début consultation\nstartConsultation\nstatus=in_treatment care_stage=in_care]
+    Start --> Fill[Documentation consultation]
+    Fill --> Obs{Observation ?}
+    Obs -->|oui| InObs[care_stage=in_observation]
+    InObs --> Disp
+    Obs -->|non| Disp[Décision issue\ndecideDisposition]
+    Disp --> Complete[Clôture\ncompleteVisit / closeVisit]
+    Complete --> Turnover[Lit -> cleaning]
+    Turnover --> End([Patient sorti])
+    WaitTri --> Lwbs{Parti avant vue ?}
+    Lwbs -->|oui| Complete

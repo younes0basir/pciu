@@ -1,6 +1,6 @@
 import { ChiefVisitCard } from '@/components/chief/ChiefVisitCard.jsx'
 
-export function ChiefPipelineColumn({ title, subtitle, visits, tone, onSelectVisit }) {
+export function ChiefPipelineColumn({ title, subtitle, visits, tone, onSelectVisit, rankByVisitId }) {
   const toneClasses = {
     slate: 'border-slate-200 bg-slate-50/80',
     amber: 'border-amber-200 bg-amber-50/50',
@@ -24,7 +24,14 @@ export function ChiefPipelineColumn({ title, subtitle, visits, tone, onSelectVis
         {visits.length === 0 ? (
           <p className="py-8 text-center text-xs font-semibold text-slate-400">Aucun patient</p>
         ) : (
-          visits.map((v) => <ChiefVisitCard key={v.visitId} visit={v} onSelect={onSelectVisit} />)
+          visits.map((v) => (
+            <ChiefVisitCard
+              key={v.visitId}
+              visit={v}
+              queueRank={rankByVisitId?.[v.visitId] ?? null}
+              onSelect={onSelectVisit}
+            />
+          ))
         )}
       </div>
     </section>

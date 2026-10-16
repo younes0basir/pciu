@@ -1,27 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BedDouble, HeartPulse, LayoutList, Search } from 'lucide-react'
+import { BedDouble, HeartPulse, LayoutList } from 'lucide-react'
 
-import { RoleDashboardHeader } from '@/components/layout/RoleDashboardHeader.jsx'
+import { AppShell } from '@/components/layout/AppShell.jsx'
 import { DashboardAlert } from '@/components/layout/DashboardAlert.jsx'
-import { DashboardMain } from '@/components/layout/DashboardMain.jsx'
-import { DashboardPageIntro } from '@/components/layout/DashboardPageIntro.jsx'
-import { DashboardShell } from '@/components/layout/DashboardShell.jsx'
-import { DashboardTabBar } from '@/components/layout/DashboardTabBar.jsx'
-import { dashboardInputClass, dashboardSelectClass } from '@/components/layout/dashboardStyles.js'
+import { DashboardPageHeader } from '@/components/layout/DashboardPageHeader.jsx'
 import { ChiefVisitDrawer } from '@/components/chief/ChiefVisitDrawer.jsx'
 import { ClinicianKpiBar } from '@/components/clinician/ClinicianKpiBar.jsx'
 import { ClinicianRoomBoard } from '@/components/clinician/ClinicianRoomBoard.jsx'
 import { ClinicianWaitingPanel } from '@/components/clinician/ClinicianWaitingPanel.jsx'
-import { AccueilKpiBar } from '@/components/accueil/AccueilKpiBar.jsx'
-import { AccueilPipelineColumn } from '@/components/accueil/AccueilPipelineColumn.jsx'
-import { AccueilQueueList } from '@/components/accueil/AccueilQueueList.jsx'
+import { QueueWorkspace } from '@/components/accueil/QueueWorkspace.jsx'
 import {
   boardVisitToCard,
   computeAccueilStats,
   filterAccueilWaiting,
 } from '@/components/accueil/accueilUtils.js'
 import { NurseBedMapPanel } from '@/components/nurse/NurseBedMapPanel.jsx'
-import { AccueilCarePathBanner } from '@/components/accueil/AccueilCarePathBanner.jsx'
 import { NurseQuickPlaceModal } from '@/components/nurse/NurseQuickPlaceModal.jsx'
 import { useClinicianDashboard } from '@/hooks/useClinicianDashboard.js'
 import { WorklistsPanel } from '@/components/workflow/WorklistsPanel.jsx'
@@ -29,11 +22,29 @@ import { setBedOperationalStatus } from '@/api/careFlow.js'
 
 const NURSE_ROLE = 'nurse'
 
-const TABS = [
+const NAV_ITEMS = [
   { id: 'room', label: 'Ma salle', icon: HeartPulse },
   { id: 'beds', label: 'Salles & lits', icon: BedDouble },
   { id: 'queue', label: 'File d’attente', icon: LayoutList },
 ]
+
+const WORKSPACE_META = {
+  room: {
+    title: 'Poste infirmier',
+    badge: 'Ma salle',
+    description: 'Triage, lits, file d’attente et rédaction de consultation pour le médecin de salle.',
+  },
+  beds: {
+    title: 'Salles & lits',
+    badge: 'Placement',
+    description: 'Cartographie des lits et placement rapide des patients appelés.',
+  },
+  queue: {
+    title: 'File d’attente',
+    badge: 'Worklists',
+    description: 'Vue complète de la file, worklists et patients prêts à placer.',
+  },
+}
 
 export default function NurseDashboardPage() {
   const {
@@ -67,7 +78,7 @@ export default function NurseDashboardPage() {
     logout,
   } = useClinicianDashboard(NURSE_ROLE)
 
-  const [activeTab, setActiveTab] = useState('room')
+  const [activeWorkspace, setActiveWorkspace] = useState('room')
   const [search, setSearch] = useState('')
   const [priorityFilter, setPriorityFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -96,6 +107,19 @@ export default function NurseDashboardPage() {
     return { uncalled, called }
   }, [filteredWaiting])
 
+  const formattedLastUpdated = useMemo(() => {
+    if (!workspace?.timestamp) return null
+    return new Date(workspace.timestamp).toLocaleTimeString('fr-FR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    })
+  }, [workspace?.timestamp])
+
+  const roomMeta = workspace?.assignment?.roomName
+    ? ` · Salle ${workspace.assignment.roomName}`
+    : ''
+
   useEffect(() => {
     document.title = 'Infirmier · PICU CARE'
   }, [])
@@ -117,45 +141,54 @@ export default function NurseDashboardPage() {
     }
   }
 
-  return (
-    <DashboardShell role={NURSE_ROLE}>
-        <RoleDashboardHeader
-          role={NURSE_ROLE}
-          subtitle="Triage, placement, suivi de salle et consultation pour le médecin"
-          backendHealth={backendHealth}
-          refreshing={refreshing}
-          onRefresh={() => loadWorkspace(true)}
-          user={auth?.user}
-          onLogout={logout}
-        />
+  const meta = WORKSPACE_META[activeWorkspace] ?? WORKSPACE_META.room
 
-        <DashboardMain narrow>
-        <DashboardPageIntro
-          title="Poste infirmier"
-          description="Triage, lits, file d’attente et rédaction de consultation pour le médecin de salle."
-          meta={`Dernière mise à jour ${workspace?.timestamp ? new Date(workspace.timestamp).toLocaleTimeString('fr-FR') : '—'}${workspace?.assignment?.roomName ? ` · Salle ${workspace.assignment.roomName}` : ''}`}
-          tabs={
-            <DashboardTabBar
-              role={NURSE_ROLE}
-              tabs={TABS}
-              activeId={activeTab}
-              onChange={setActiveTab}
-              ariaLabel="Sections infirmier"
-            />
+  return (
+    <AppShell
+      role={NURSE_ROLE}
+      user={auth?.user}
+      backendHealth={backendHealth}
+      refreshing={refreshing}
+      onRefresh={() => loadWorkspace(true)}
+      onLogout={logout}
+      searchValue={search}
+      onSearchChange={activeWorkspace === 'queue' ? setSearch : undefined}
+      searchPlaceholder="Recherche patient (Nom, code, CIN…)"
+      navItems={NAV_ITEMS}
+      activeNavId={activeWorkspace}
+      onSelectNav={setActiveWorkspace}
+      lastUpdated={formattedLastUpdated}
+    >
+      <div className="space-y-4">
+        <DashboardPageHeader
+          title={meta.title}
+          badge={meta.badge}
+          description={meta.description}
+          meta={roomMeta}
+          actions={
+            activeWorkspace !== 'room' ? (
+              <button
+                type="button"
+                onClick={() => setActiveWorkspace('room')}
+                className="text-xs font-bold text-primary hover:underline"
+              >
+                Retour à ma salle
+              </button>
+            ) : null
           }
         />
 
-          {notice ? <DashboardAlert variant="success">{notice}</DashboardAlert> : null}
-          {error ? <DashboardAlert variant="error">{error}</DashboardAlert> : null}
+        {notice ? <DashboardAlert variant="success">{notice}</DashboardAlert> : null}
+        {error ? <DashboardAlert variant="error">{error}</DashboardAlert> : null}
 
-          {loading && !workspace ? (
-            <p className="text-sm font-semibold text-slate-500">Chargement du poste infirmier…</p>
-          ) : (
-            <>
-              <ClinicianKpiBar stats={workspace?.stats} role={NURSE_ROLE} />
-
-              {activeTab === 'room' ? (
-                <div className="space-y-5">
+        {loading && !workspace ? (
+          <p className="text-sm font-semibold text-text-secondary">Chargement du poste infirmier…</p>
+        ) : (
+          <>
+            {activeWorkspace === 'room' ? (
+              <>
+                <ClinicianKpiBar stats={workspace?.stats} role={NURSE_ROLE} />
+                <div className="space-y-4">
                   <ClinicianWaitingPanel
                     waiting={workspace?.waitingToPlace ?? []}
                     onSelectVisit={(id) => {
@@ -173,154 +206,105 @@ export default function NurseDashboardPage() {
                     }}
                   />
                 </div>
-              ) : null}
+              </>
+            ) : null}
 
-              {activeTab === 'beds' ? (
-                <NurseBedMapPanel
-                  beds={workspace?.allBeds ?? []}
-                  zones={workspace?.zones ?? []}
-                  highlightRoomId={workspace?.assignment?.roomId}
-                  onSelectOccupied={(visitId) => {
-                    setNotice(null)
-                    setDrawerVisitId(visitId)
-                  }}
-                  onSelectFree={(bed) => {
-                    setNotice(null)
-                    if (bed.operationalStatus && bed.operationalStatus !== 'ready') {
-                      void handleMarkBedReady(bed)
-                      return
-                    }
-                    setQuickPlaceBed(bed)
-                  }}
-                />
-              ) : null}
+            {activeWorkspace === 'beds' ? (
+              <NurseBedMapPanel
+                beds={workspace?.allBeds ?? []}
+                zones={workspace?.zones ?? []}
+                highlightRoomId={workspace?.assignment?.roomId}
+                onSelectOccupied={(visitId) => {
+                  setNotice(null)
+                  setDrawerVisitId(visitId)
+                }}
+                onSelectFree={(bed) => {
+                  setNotice(null)
+                  if (bed.operationalStatus && bed.operationalStatus !== 'ready') {
+                    void handleMarkBedReady(bed)
+                    return
+                  }
+                  setQuickPlaceBed(bed)
+                }}
+              />
+            ) : null}
 
-              {activeTab === 'queue' ? (
-                <div className="space-y-5">
+            {activeWorkspace === 'queue' ? (
+              <QueueWorkspace
+                stats={queueStats}
+                pipeline={pipeline}
+                filteredWaiting={filteredWaiting}
+                priorityFilter={priorityFilter}
+                statusFilter={statusFilter}
+                onPriorityFilterChange={setPriorityFilter}
+                onStatusFilterChange={setStatusFilter}
+                onSelectVisit={(visitId) => {
+                  setNotice(null)
+                  setDrawerVisitId(visitId)
+                }}
+                uncalledTitle="En attente"
+                uncalledSubtitle="Jamais appelé · triage possible"
+                calledTitle="En attente"
+                calledSubtitle="Appelé · prêt à placer"
+                carePathPhase="nurse"
+                leading={
                   <WorklistsPanel
                     onSelectVisit={(visitId) => {
                       setNotice(null)
                       setDrawerVisitId(visitId)
                     }}
                   />
-                  <AccueilCarePathBanner
-                    phase="nurse"
-                    calledCount={queueStats.called ?? 0}
-                  />
-                  <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-                    <div className="relative flex-1 sm:max-w-xs">
-                      <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
-                      <input
-                        type="search"
-                        value={search}
-                        onChange={(event) => setSearch(event.target.value)}
-                        placeholder="Nom, code, CIN…"
-                        className={`${dashboardInputClass} pl-10`}
-                      />
-                    </div>
-                    <select
-                      value={priorityFilter}
-                      onChange={(event) => setPriorityFilter(event.target.value)}
-                      className={dashboardSelectClass}
-                    >
-                      <option value="all">Toutes priorités</option>
-                      <option value="2">P1–P2</option>
-                      <option value="3">P1–P3</option>
-                      <option value="5">P1–P5</option>
-                    </select>
-                    <select
-                      value={statusFilter}
-                      onChange={(event) => setStatusFilter(event.target.value)}
-                      className={dashboardSelectClass}
-                    >
-                      <option value="all">Tous</option>
-                      <option value="uncalled">Non appelés</option>
-                      <option value="called">Appelés</option>
-                    </select>
-                  </div>
+                }
+              />
+            ) : null}
+          </>
+        )}
+      </div>
 
-                  <AccueilKpiBar stats={queueStats} />
+      <ChiefVisitDrawer
+        open={Boolean(drawerVisitId)}
+        loading={drawerLoading}
+        detail={drawerDetail}
+        actionBusy={actionBusy}
+        onClose={() => setDrawerVisitId(null)}
+        clinicians={clinicians}
+        currentUserId={auth?.user?.id}
+        roomTeam={roomTeam}
+        consultationMode="nurse"
+        allowCall={false}
+        allowPlace
+        allowReturn
+        allowClose
+        allowConsultation
+        allowTriage
+        onPlace={handlePlace}
+        onOpenConsultation={handleOpenConsultation}
+        onSaveConsultation={handleSaveConsultation}
+        onReturn={handleReturn}
+        onCloseVisit={handleCloseVisit}
+        onValidateTriage={handleValidateTriage}
+        allowCareFlow
+        allowCritical
+        allowTransfer
+        allowObservation
+        allowCompleteDeparture
+        onSetCritical={handleSetCritical}
+        onTransfer={handleTransfer}
+        onStartObservation={handleStartObservation}
+        onEndObservation={handleEndObservation}
+        onCompleteDeparture={handleCompleteDeparture}
+        allowExamActions
+        onRecordMutated={refreshDrawerDetail}
+      />
 
-                  <div className="grid gap-3 lg:grid-cols-2">
-                    <AccueilPipelineColumn
-                      title="En attente"
-                      subtitle="Jamais appelé · triage possible"
-                      visits={pipeline.uncalled}
-                      tone="slate"
-                      onSelectVisit={(visitId) => {
-                        setNotice(null)
-                        setDrawerVisitId(visitId)
-                      }}
-                    />
-                    <AccueilPipelineColumn
-                      title="En attente"
-                      subtitle="Appelé · prêt à placer"
-                      visits={pipeline.called}
-                      tone="amber"
-                      onSelectVisit={(visitId) => {
-                        setNotice(null)
-                        setDrawerVisitId(visitId)
-                      }}
-                    />
-                  </div>
-
-                  <AccueilQueueList
-                    visits={filteredWaiting}
-                    onSelectVisit={(visitId) => {
-                      setNotice(null)
-                      setDrawerVisitId(visitId)
-                    }}
-                  />
-                </div>
-              ) : null}
-            </>
-          )}
-        </DashboardMain>
-
-        <ChiefVisitDrawer
-          open={Boolean(drawerVisitId)}
-          loading={drawerLoading}
-          detail={drawerDetail}
-          actionBusy={actionBusy}
-          onClose={() => setDrawerVisitId(null)}
-          clinicians={clinicians}
-          currentUserId={auth?.user?.id}
-          roomTeam={roomTeam}
-          consultationMode="nurse"
-          allowCall={false}
-          allowPlace
-          allowReturn
-          allowClose
-          allowConsultation
-          allowTriage
-          onPlace={handlePlace}
-          onOpenConsultation={handleOpenConsultation}
-          onSaveConsultation={handleSaveConsultation}
-          onReturn={handleReturn}
-          onCloseVisit={handleCloseVisit}
-          onValidateTriage={handleValidateTriage}
-          allowCareFlow
-          allowCritical
-          allowTransfer
-          allowObservation
-          allowCompleteDeparture
-          onSetCritical={handleSetCritical}
-          onTransfer={handleTransfer}
-          onStartObservation={handleStartObservation}
-          onEndObservation={handleEndObservation}
-          onCompleteDeparture={handleCompleteDeparture}
-          allowExamActions
-          onRecordMutated={refreshDrawerDetail}
-        />
-
-        <NurseQuickPlaceModal
-          open={Boolean(quickPlaceBed)}
-          bed={quickPlaceBed}
-          waitingPatients={waitingQueue}
-          busy={actionBusy}
-          onClose={() => setQuickPlaceBed(null)}
-          onConfirm={confirmQuickPlace}
-        />
-    </DashboardShell>
+      <NurseQuickPlaceModal
+        open={Boolean(quickPlaceBed)}
+        bed={quickPlaceBed}
+        waitingPatients={waitingQueue}
+        busy={actionBusy}
+        onClose={() => setQuickPlaceBed(null)}
+        onConfirm={confirmQuickPlace}
+      />
+    </AppShell>
   )
 }

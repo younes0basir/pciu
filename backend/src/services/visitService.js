@@ -8,7 +8,8 @@ const {
   findIdempotentActionResult,
   recordVisitEvent,
 } = require('./visitEventService');
-const { assertBedAssignable } = require('./resourceService');
+const { assertBedAssignable, releaseBedToTurnover } = require('./resourceService');
+const { mapVisitPriorityFields } = require('../lib/visitPriority');
 const { decideDisposition } = require('./careService');
 const { V3_OUTCOMES, mapCloseOutcomeToLegacyStatus } = require('../lib/careStage');
 
@@ -24,6 +25,15 @@ function generatePublicCode() {
 }
 
 async function registerVisit(data, actorUser, actionContext = {}) {
+  const result = await registerVisitTransaction(data, actorUser, actionContext);
+  setImmediate(() => {
+    const { maybeRunShadowTriage } = require('../ai/shadow/triage-shadow-trigger');
+    maybeRunShadowTriage(result.visitId).catch(() => {});
+  });
+  return result;
+}
+
+async function registerVisitTransaction(data, actorUser, actionContext = {}) {
   const {
     firstName,
     lastName,
@@ -131,12 +141,13 @@ async function registerVisit(data, actorUser, actionContext = {}) {
         care_stage,
         patient_location,
         priority,
+        registration_priority,
         chief_complaint,
         arrival_mode,
         registered_by,
         critical_flag,
         current_orientation
-      ) VALUES ($1, $2, 'waiting', 'triage_pending', 'waiting_area', $3, $4, $5, $6, $7, $8)
+      ) VALUES ($1, $2, 'waiting', 'triage_pending', 'waiting_area', $3, $3, $4, $5, $6, $7, $8)
       RETURNING *`,
       [
         publicCode,
@@ -709,10 +720,10 @@ async function closeVisit(visitId, data, actorUser, actionContext = {}) {
       [visitId],
     );
     if (releasedBed.rowCount > 0) {
-      await client.query(
-        `UPDATE beds SET operational_status = 'cleaning' WHERE id = $1`,
-        [releasedBed.rows[0].bed_id],
-      );
+      await releaseBedToTurnover(client, releasedBed.rows[0].bed_id, actorUser, {
+        note: releaseReason || outcome,
+        visitId,
+      });
     }
 
     // 2. End active consultation if open
@@ -797,13 +808,25 @@ async function returnVisit(visitId, data, actorUser, actionContext = {}) {
       };
     }
 
-    // 1. Release active bed
+    const activeBed = await client.query(
+      `SELECT bed_id FROM bed_assignments
+       WHERE visit_id = $1 AND released_at IS NULL`,
+      [visitId],
+    );
+
     await client.query(
       `UPDATE bed_assignments 
        SET released_at = NOW(), released_by = $1, release_reason = COALESCE($2, 'Returned to waiting')
        WHERE visit_id = $3 AND released_at IS NULL`,
       [actorUser?.id || null, reason || null, visitId]
     );
+
+    if (activeBed.rowCount > 0) {
+      await releaseBedToTurnover(client, activeBed.rows[0].bed_id, actorUser, {
+        note: reason || 'Returned to waiting',
+        visitId,
+      });
+    }
 
     // 2. Update visit status to 'waiting'
     const updatedVisit = await client.query(
@@ -902,6 +925,7 @@ async function updateVisitPriority(visitId, data, actorUser, actionContext = {})
     await client.query(
       `UPDATE visits
        SET priority = $1,
+           clinical_priority_validated_at = COALESCE(clinical_priority_validated_at, NOW()),
            care_stage = CASE WHEN care_stage IN ('registered', 'triage_pending') THEN 'waiting_care' ELSE care_stage END,
            updated_at = NOW()
        WHERE id = $2`,
@@ -964,6 +988,8 @@ async function getVisitDetails(visitId) {
       v.care_started_at,
       v.disposition_decided_at,
       v.priority,
+      v.registration_priority,
+      v.clinical_priority_validated_at,
       v.chief_complaint,
       v.arrival_mode,
       v.arrived_at,
@@ -1067,7 +1093,7 @@ async function getVisitDetails(visitId) {
     patientLocation: v.patient_location,
     careStartedAt: v.care_started_at,
     dispositionDecidedAt: v.disposition_decided_at,
-    priority: v.priority,
+    ...mapVisitPriorityFields(v),
     chiefComplaint: v.chief_complaint,
     arrivalMode: v.arrival_mode,
     arrivedAt: v.arrived_at,

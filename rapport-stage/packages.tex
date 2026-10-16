@@ -1,0 +1,57 @@
+% Encodage et langue
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+
+% Mise en page
+\usepackage[a4paper,margin=2.5cm,top=3cm,bottom=3cm]{geometry}
+\usepackage{setspace}
+\onehalfspacing
+
+% Graphiques et images
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{subcaption}
+
+% Tableaux
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{multirow}
+
+% Mathématiques
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+% Listings et code
+\usepackage{listings}
+\usepackage{xcolor}
+
+% Liens et navigation
+\usepackage{hyperref}
+\usepackage{titlesec}
+
+% En-têtes et pieds de page
+\usepackage{fancyhdr}
+
+% Table des matières
+\usepackage{tocloft}
+\usepackage{tocbibind}
+
+% Listes
+\usepackage{enumitem}
+
+% Configuration des listings pour le code
+\lstset{
+    basicstyle=\ttfamily\footnotesize,
+    keywordstyle=\color{blue}\bfseries,
+    commentstyle=\color{green!60!black},
+    stringstyle=\color{red},
+    breaklines=true,
+    frame=single,
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    tabsize=2,
+    showstringspaces=false
+}

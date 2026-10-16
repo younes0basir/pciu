@@ -1,0 +1,56 @@
+% Configuration des en-têtes et pieds de page
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\leftmark}
+\fancyhead[R]{\thepage}
+\fancyfoot[C]{Rapport de Stage - PICU}
+
+% Configuration des titres de chapitres
+\titleformat{\chapter}[display]
+{\normalfont\huge\bfseries\centering}{\chaptertitlename\ \thechapter}{20pt}{\Huge}
+
+% Profondeur de la table des matières (chapitres + sections principales uniquement)
+\setcounter{tocdepth}{1}
+\setcounter{secnumdepth}{3}
+
+% Configuration de la table des matières
+\setlength{\cftbeforechapskip}{10pt}
+\setlength{\cftbeforesecskip}{4pt}
+\setlength{\cftchapindent}{0pt}
+\setlength{\cftsecindent}{1.5em}
+
+% Configuration des liens hypertexte
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,
+    urlcolor=cyan,
+    citecolor=blue
+}
+
+% Configuration des listes
+\setlist[itemize]{itemsep=5pt}
+\setlist[enumerate]{itemsep=5pt}
+
+% Configuration des légendes
+\captionsetup[figure]{labelfont=bf,textfont=normal}
+\captionsetup[table]{labelfont=bf,textfont=normal}
+
+% Configuration des marges pour les listings
+\lstset{
+    frame=single,
+    frameround=tttt,
+    rulecolor=\color{black!30}
+}
+
+% Inclusion d'image tolerante : essaie .png, .jpg puis .jpeg.
+% Usage : \IncludeImg[largeur]{nom_sans_extension}
+% Exemple : \IncludeImg[4cm]{logo_upf}  -> images/logo_upf.png (ou .jpg/.jpeg)
+\newcommand{\IncludeImg}[2][\linewidth]{%
+    \IfFileExists{images/#2.png}{\includegraphics[width=#1]{images/#2.png}}{%
+    \IfFileExists{images/#2.jpg}{\includegraphics[width=#1]{images/#2.jpg}}{%
+    \IfFileExists{images/#2.jpeg}{\includegraphics[width=#1]{images/#2.jpeg}}{%
+    \IfFileExists{images/#2.PNG}{\includegraphics[width=#1]{images/#2.PNG}}{%
+    \IfFileExists{images/#2.JPG}{\includegraphics[width=#1]{images/#2.JPG}}{%
+        \fbox{\parbox{#1}{\centering\vspace{1cm}À insérer : \texttt{images/#2.png}\vspace{1cm}}}}%
+    }}}}}%

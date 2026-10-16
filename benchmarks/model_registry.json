@@ -1,0 +1,22 @@
+{
+  "models": [
+    {
+      "id": "nvidia/nemotron-3.5-lightning-30b-a3b",
+      "profile": "fast",
+      "status": "benchmark",
+      "notes": "Default fast profile for bed flow / capacity (NVIDIA integrate API)"
+    },
+    {
+      "id": "nvidia/nemotron-3.5-lightning-30b-a3b",
+      "profile": "reasoning",
+      "status": "benchmark",
+      "notes": "Default reasoning profile for triage / documentation"
+    },
+    {
+      "id": "nvidia/nv-embedqa-e5-v5",
+      "profile": "embedding",
+      "status": "benchmark",
+      "notes": "Protocol RAG embeddings"
+    }
+  ]
+}

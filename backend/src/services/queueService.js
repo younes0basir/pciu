@@ -1,5 +1,7 @@
 const { query } = require('../config/db');
 const { getPendingExamsQueue } = require('./examTaskService');
+const { mapVisitPriorityFields } = require('../lib/visitPriority');
+const { getReassessmentIntervalMinutes } = require('./workflowSettingsService');
 
 const WORKLIST_SORT = `
   ORDER BY v.priority ASC, v.critical_flag DESC, v.arrived_at ASC, v.id ASC
@@ -9,7 +11,7 @@ function mapVisitRow(row) {
   return {
     visitId: row.visit_id,
     publicCode: row.public_code,
-    priority: row.priority,
+    ...mapVisitPriorityFields(row),
     careStage: row.care_stage,
     criticalFlag: Boolean(row.critical_flag),
     orientation: row.current_orientation,
@@ -35,6 +37,8 @@ const BASE_SELECT = `
     v.id AS visit_id,
     v.public_code,
     v.priority,
+    v.registration_priority,
+    v.clinical_priority_validated_at,
     v.care_stage,
     v.critical_flag,
     v.current_orientation,
@@ -105,19 +109,20 @@ async function getDispositionQueue() {
   return result.rows.map(mapVisitRow);
 }
 
-/** Patients whose last triage is older than configured minutes (default 60). */
-async function getReassessmentQueue({ maxMinutesSinceTriage = 60 } = {}) {
-  const minutes = Math.max(15, Number(maxMinutesSinceTriage) || 60);
+/** Patients with validated triage whose last assessment exceeds configured interval. */
+async function getReassessmentQueue({ maxMinutesSinceTriage } = {}) {
+  const minutes = Math.max(
+    15,
+    Number(maxMinutesSinceTriage) || (await getReassessmentIntervalMinutes()),
+  );
   const result = await query(
     `${BASE_SELECT}
      WHERE v.closed_at IS NULL
+       AND v.clinical_priority_validated_at IS NOT NULL
        AND v.care_stage IN ('waiting_care', 'in_care', 'in_observation')
        AND (
-         NOT EXISTS (SELECT 1 FROM triage_assessments ta WHERE ta.visit_id = v.id)
-         OR (
-           SELECT MAX(ta.performed_at) FROM triage_assessments ta WHERE ta.visit_id = v.id
-         ) < NOW() - ($1::text || ' minutes')::interval
-       )
+         SELECT MAX(ta.performed_at) FROM triage_assessments ta WHERE ta.visit_id = v.id
+       ) < NOW() - ($1::text || ' minutes')::interval
      ${WORKLIST_SORT}`,
     [String(minutes)],
   );

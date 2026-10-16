@@ -1,0 +1,269 @@
+\chapter{Réalisation de la plateforme PICU}
+
+\section{Introduction}
+
+Ce chapitre décrit la réalisation concrète des choix de conception. Il présente l'environnement de développement, puis chaque module du parcours patient, les interfaces, la communication temps réel et la couche d'assistance IA. Pour chaque module, la logique métier et sa traduction technique sont explicitées.
+
+\section{Environnement de développement}
+
+\subsection{Technologies}
+
+React~19, Vite, TailwindCSS, React Router, Node.js, Express, PostgreSQL (Neon), Socket.IO, JWT, bcrypt, NVIDIA NIM (SDK compatible OpenAI), \texttt{node:test}.
+
+\subsection{Outils}
+
+Visual Studio Code, Git, GitHub Actions, Chrome/Firefox (DevTools), Draw.io / Mermaid, pgAdmin/psql.
+
+\section{Module d'authentification et de gestion des accès}
+
+L'authentification est implémentée dans les routes d'authentification et le middleware \texttt{authenticateJwt}. Le mot de passe est haché avec bcrypt ; la connexion émet un jeton JWT stocké côté client. À chaque requête, le middleware recharge l'utilisateur en base et rejette tout compte inactif. L'autorisation combine deux niveaux : un contrôle par \textbf{rôle} (\texttt{requireRole}) et un contrôle plus fin par \textbf{capacité} (\texttt{requireCapability}).
+
+\begin{table}[H]
+\centering
+\caption{Capacités par rôle (extrait)}
+\label{tab:roles}
+\small
+\begin{tabular}{|l|p{9.4cm}|}
+\hline
+\textbf{Rôle} & \textbf{Capacités} \\
+\hline
+Réceptionniste & register, call, critical \\
+\hline
+Infirmier & place, return, start, fill, close, triage, critical, ai\_documentation, ai\_triage\_recommend, ai\_bed\_flow \\
+\hline
+Médecin & start, close, fill, ai\_documentation, ai\_triage\_recommend \\
+\hline
+Chef & register, call, place, start, return, close, fill, critical, ai\_health, ai\_settings, + IA \\
+\hline
+Administrateur & manage\_users, ai\_health, ai\_settings \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    % Image à déposer dans rapport-stage/images/ : login_screen.png
+    \IfFileExists{images/login_screen.png}{\includegraphics[width=0.8\textwidth]{images/login_screen.png}}{\fbox{\parbox{0.8\textwidth}{\centering\vspace{1.5cm}À insérer : \texttt{images/login\_screen.png}\vspace{1.5cm}}}}
+    \caption{Page de connexion de PICU}
+    \label{fig:login_screen}
+\end{figure}
+
+\section{Module patients et visites}
+
+Les routes de visite exposent les actions du workflow. L'enregistrement crée le patient s'il est inconnu (recherche par numéro national), vérifie qu'aucune visite active n'existe, puis crée la visite avec un \textbf{code public unique} et la place en phase de triage. Un mécanisme d'\textbf{idempotence} (clé fournie par le client) garantit qu'un double envoi ne crée pas deux visites.
+
+Chaque action suit le même patron : ouverture d'une transaction, verrouillage de la visite, contrôle de l'état courant, écriture métier, journalisation d'un événement \texttt{visit\_events}, puis validation de la transaction.
+
+\section{Module file d'attente et appel}
+
+La file d'attente n'est pas stockée comme une table mutable : elle est \textbf{calculée} à la lecture par une vue (\texttt{waiting\_board}) qui ordonne les patients par priorité croissante, indicateur critique puis date d'arrivée. La position est donc cohérente sans risque de doublons.
+
+L'action \texttt{call} reste dans l'état \texttt{waiting} : elle enregistre l'heure du dernier appel et incrémente un compteur, matérialisant visuellement qu'un patient « a été appelé » sans le retirer de la file. Le staff de chaque rôle dispose de vues de travail (\texttt{/queue/worklists}) filtrées selon son périmètre.
+
+\section{Module de triage}
+
+Le triage est structuré et historisé. Chaque évaluation est enregistrée dans \texttt{triage\_assessments} avec sa priorité (1--5), son type (\texttt{initial}, \texttt{reassessment}, \texttt{escalation}), une note clinique, des constantes éventuelles (JSONB), une orientation et, en cas de changement, un motif. Un indicateur \texttt{critical\_flag} peut être posé pour le fast-track des patients critiques.
+
+Le système distingue explicitement la \textbf{priorité d'enregistrement} (fixée à l'accueil) et la \textbf{priorité clinique} (validée au triage), ce qui permet de mesurer l'apport du triage et d'éviter de confondre les deux notions.
+
+\section{Module de gestion des ressources}
+
+\subsection{Typologie et cycle de vie}
+
+Une ressource est un lit typé (\texttt{resource\_type} : lit, fauteuil, box, poste de triage, poste de consultation) associé à une salle et à une zone. Elle possède un \textbf{état opérationnel} (\texttt{ready}, \texttt{cleaning}, \texttt{maintenance}, \texttt{blocked}, \texttt{out\_of\_service}). Les transitions d'état sont tracées dans \texttt{resource\_status\_events}, et le passage direct de « nettoyage » à « prêt » est refusé pour imposer un contrôle humain de remise en service.
+
+\subsection{Affectation et libération}
+
+L'affectation vérifie que la ressource est affectable (\texttt{assertBedAssignable}), qu'aucune affectation active n'existe, puis crée l'affectation et passe la visite en \texttt{placed}. À la clôture ou au retour, la ressource est libérée et bascule en \textbf{turnover} (nettoyage) avant remise à disposition.
+
+\subsection{Le plan des lits}
+
+L'interface \texttt{BedPlanPanel} présente les zones, salles et lits avec leur occupation, et permet l'affectation d'un lit libre. Elle est partagée par l'infirmier, le médecin et le chef, avec des droits différents.
+
+\begin{figure}[H]
+    \centering
+    % Image à déposer dans rapport-stage/images/ : dashboard_infirmier.png
+    \IfFileExists{images/dashboard_infirmier.png}{\includegraphics[width=0.9\textwidth]{images/dashboard_infirmier.png}}{\fbox{\parbox{0.9\textwidth}{\centering\vspace{1.5cm}À insérer : \texttt{images/dashboard\_infirmier.png}\vspace{1.5cm}}}}
+    \caption{Dashboard Infirmier — triage, plan des lits et file}
+    \label{fig:dashboard_infirmier}
+\end{figure}
+
+\section{Module de prise en charge et consultations}
+
+Le démarrage d'une consultation crée une ligne \texttt{consultations} (médecin attribué, auteur de la saisie), passe la visite en \texttt{in\_treatment} et en phase \texttt{in\_care}. Le remplissage met à jour diagnostic et notes ; la clôture libère la ressource, clôture la consultation et fixe l'\textbf{outcome} (sortie, hospitalisation, transfert, parti avant ou pendant la prise en charge). Les règles d'accès garantissent qu'un médecin ne gère que les patients de sa salle et qu'un infirmier ne rédige que pour le médecin référent de la salle.
+
+\begin{figure}[H]
+    \centering
+    % Image à déposer dans rapport-stage/images/ : dashboard_medecin.png
+    \IfFileExists{images/dashboard_medecin.png}{\includegraphics[width=0.9\textwidth]{images/dashboard_medecin.png}}{\fbox{\parbox{0.9\textwidth}{\centering\vspace{1.5cm}À insérer : \texttt{images/dashboard\_medecin.png}\vspace{1.5cm}}}}
+    \caption{Dashboard Médecin — patients actifs et consultations}
+    \label{fig:dashboard_medecin}
+\end{figure}
+
+\section{Module transferts, relèves, examens et tâches}
+
+\subsection{Transferts de lit}
+
+Une demande de transfert (\texttt{transfer\_requests}) décrit le lit source, le lit cible et un statut (\texttt{pending}, \texttt{confirmed}, \texttt{cancelled}, \texttt{expired}). La confirmation n'est autorisée qu'à certains rôles et déclenche le déplacement effectif, tracé par un événement.
+
+\subsection{Relèves}
+
+Une demande de relève (\texttt{handoff\_requests}) formalise le passage de responsabilité d'un soignant à un autre, avec motif et statut (\texttt{pending}, \texttt{accepted}, \texttt{declined}, \texttt{cancelled}).
+
+\subsection{Examens et tâches de soin}
+
+Les tables \texttt{exams} et \texttt{care\_tasks} permettent de demander des examens (biologie, imagerie) et de créer des tâches de soin, avec statuts et horodatages, l'ensemble étant journalisé et visible dans le dossier de la visite.
+
+\section{Module supervision et alertes}
+
+Le chef de service dispose d'un centre de commande (\textit{command center}) qui agrège :
+
+\begin{itemize}
+    \item le \textbf{pipeline} des patients par étape ;
+    \item les \textbf{indicateurs SLA} et la détection de patients bloqués ;
+    \item les \textbf{alertes opérationnelles} hiérarchisées ;
+    \item les indicateurs de \textbf{capacité} et de charge ;
+    \item les \textbf{équipes de salle} et le plan des lits.
+\end{itemize}
+
+\subsection{Seuils SLA}
+
+Les seuils de blocage sont configurables ; les valeurs par défaut sont présentées ci-dessous. Chaque dépassement est qualifié de \textit{warning} ou de \textit{critical} selon un facteur deux.
+
+\begin{table}[H]
+\centering
+\caption{Seuils SLA par défaut (chef de service)}
+\label{tab:sla}
+\small
+\begin{tabular}{|l|c|}
+\hline
+\textbf{Situation} & \textbf{Seuil (minutes)} \\
+\hline
+Attente non appelé & 20 \\
+\hline
+Appelé sans mise au lit & 15 \\
+\hline
+Au lit sans consultation & 30 \\
+\hline
+Prise en charge prolongée & 60 \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{Règles de supervision}
+
+Les règles de supervision sont pilotées par des paramètres (\texttt{workflow\_settings}). Par prudence, une règle de délai n'est active que si elle est explicitement \textbf{approuvée} (le test \texttt{ruleConfigured} le vérifie). Les règles de réévaluation périodique et de pression de capacité sont activées ; les seuils de délai non validés restent désactivés en attente de validation par l'établissement.
+
+\subsection{Alertes opérationnelles}
+
+Les alertes (\texttt{operational\_alerts}) possèdent un cycle de vie (\texttt{open}, \texttt{acknowledged}, \texttt{resolved}, \texttt{obsolete}), une sévérité, une déduplication par clé et un historique d'événements. Leur évaluation est déclenchée périodiquement par le serveur.
+
+\begin{figure}[H]
+    \centering
+    % Image à déposer dans rapport-stage/images/ : dashboard_chef.png
+    \IfFileExists{images/dashboard_chef.png}{\includegraphics[width=0.9\textwidth]{images/dashboard_chef.png}}{\fbox{\parbox{0.9\textwidth}{\centering\vspace{1.5cm}À insérer : \texttt{images/dashboard\_chef.png}\vspace{1.5cm}}}}
+    \caption{Dashboard Chef de service — centre de commande}
+    \label{fig:dashboard_chef}
+\end{figure}
+
+\section{Tableaux de bord par rôle}
+
+Chaque rôle dispose d'un tableau de bord dédié :
+
+\begin{itemize}
+    \item \textbf{Accueil} : enregistrement, file, KPI, appel ;
+    \item \textbf{Infirmier} : triage, plan des lits, file, tâches ;
+    \item \textbf{Médecin} : charge de travail, salle, consultations ;
+    \item \textbf{Chef} : pipeline, SLA, alertes, capacité, équipes ;
+    \item \textbf{Administrateur} : utilisateurs, rôles, configuration.
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    % Image à déposer dans rapport-stage/images/ : dashboard_receptionniste.png
+    \IfFileExists{images/dashboard_receptionniste.png}{\includegraphics[width=0.9\textwidth]{images/dashboard_receptionniste.png}}{\fbox{\parbox{0.9\textwidth}{\centering\vspace{1.5cm}À insérer : \texttt{images/dashboard\_receptionniste.png}\vspace{1.5cm}}}}
+    \caption{Dashboard Accueil — file d'attente et enregistrement}
+    \label{fig:dashboard_receptionniste}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    % Image à déposer dans rapport-stage/images/ : dashboard_admin.png
+    \IfFileExists{images/dashboard_admin.png}{\includegraphics[width=0.9\textwidth]{images/dashboard_admin.png}}{\fbox{\parbox{0.9\textwidth}{\centering\vspace{1.5cm}À insérer : \texttt{images/dashboard\_admin.png}\vspace{1.5cm}}}}
+    \caption{Dashboard Administrateur — configuration du système}
+    \label{fig:dashboard_admin}
+\end{figure}
+
+\section{Synchronisation temps réel}
+
+À chaque transition importante, le backend publie un événement Socket.IO. Les interfaces écoutent ces événements et se rafraîchissent sans rechargement de page, un \textbf{repli par interrogation périodique} assurant la résilience en cas de coupure du canal.
+
+\begin{table}[H]
+\centering
+\caption{Principaux événements temps réel}
+\label{tab:evenements}
+\small
+\begin{tabular}{|l|p{8.6cm}|}
+\hline
+\textbf{Événement} & \textbf{Déclencheur} \\
+\hline
+\texttt{visit:status\_changed} & Enregistrement, placement, prise en charge, clôture \\
+\hline
+\texttt{queue:updated} & Appel, placement, retour en file, nouvelle arrivée \\
+\hline
+\texttt{visit:timeline\_updated} & Nouvel événement de visite (audit) \\
+\hline
+\texttt{resource:status\_changed} & Changement d'état d'une ressource (nettoyage, prêt) \\
+\hline
+\end{tabular}
+\end{table}
+
+\section{Couche d'assistance IA}
+
+\subsection{Objectifs et principes}
+
+La couche IA vise à assister les équipes sans jamais décider à leur place. Quatre intentions sont supportées : \textbf{triage}, \textbf{flux de lits}, \textbf{capacité} et \textbf{documentation}. Chaque appel produit une exécution tracée (\texttt{agent\_runs}) et une recommandation (\texttt{agent\_recommendations}).
+
+\subsection{Fournisseur et routage des modèles}
+
+L'accès aux modèles passe par NVIDIA NIM. Un routeur de modèles associe à chaque tâche un profil : \textit{reasoning} pour le triage et la documentation, \textit{fast} pour les lits et la capacité, \textit{embedding} pour la recherche documentaire. Les sorties sont contraintes par des schémas JSON.
+
+\subsection{Mode d'exécution et supervision}
+
+Le mode IA est globalement configurable : \texttt{disabled}, \texttt{collaborative}, \texttt{supervised\_autonomy}, \texttt{full\_control\_simulation}. Des indicateurs par agent (documentation, triage, triage « shadow », lits, capacité) permettent d'activer sélectivement chaque fonction.
+
+\subsection{Politique d'action et approbations}
+
+Toute action IA est soumise à une \textbf{politique de risque} : les actions cliniques (triage, clôture) sont à risque maximal et exigent une approbation humaine ; seules quelques actions à faible risque (créer une tâche de réévaluation, rafraîchir une liste, lever une alerte) sont automatiques en mode supervisé. Un garde-fou interdit le mode « simulation » sur des visites réelles.
+
+\begin{table}[H]
+\centering
+\caption{Politique d'actions IA (extrait)}
+\label{tab:ai-actions}
+\small
+\begin{tabular}{|l|c|c|}
+\hline
+\textbf{Outil} & \textbf{Risque} & \textbf{Approbation requise} \\
+\hline
+triage & critique & oui \\
+\hline
+close & critique & oui \\
+\hline
+place / transfer & haut & oui \\
+\hline
+call / return & moyen & oui \\
+\hline
+createReassessmentTask & faible & non (mode supervisé) \\
+\hline
+raiseOperationalAlert & faible & non (mode supervisé) \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{Mode « shadow » du triage}
+
+Pour évaluer le triage IA sans risque, un mode « shadow » permet d'exécuter une recommandation en arrière-plan lors de l'enregistrement, sans l'afficher comme décision officielle. Cela permet de comparer, hors production, la proposition IA à la décision humaine.
+
+\section{Conclusion}
+
+L'ensemble du parcours patient est implémenté, de l'accueil à la clôture, avec des modules avancés de supervision, de ressources et d'assistance IA. Le chapitre suivant traite de l'assurance qualité, de la sécurité et de l'industrialisation.

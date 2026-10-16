@@ -4,6 +4,11 @@ export function fetchChiefOverview() {
   return fetchApi('/chief/overview')
 }
 
+export function fetchPatientAnalytics(period = 'today') {
+  const params = new URLSearchParams({ period })
+  return fetchApi(`/chief/analytics/patients?${params.toString()}`)
+}
+
 export function fetchChiefTeams() {
   return fetchApi('/chief/teams')
 }

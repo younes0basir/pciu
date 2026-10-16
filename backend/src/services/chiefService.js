@@ -1,5 +1,6 @@
 const { query } = require('../config/db');
 const { CHIEF_SLA, applyStuckFlags } = require('../config/chiefSla');
+const { mapVisitPriorityFields } = require('../lib/visitPriority');
 
 const TERMINAL_STATUSES = ['discharged', 'transferred', 'left_without_seen'];
 
@@ -37,7 +38,8 @@ function mapVisitRow(row, now = new Date(), { isClosed = false } = {}) {
     publicCode: row.public_code,
     patientName: `${row.first_name} ${row.last_name}`,
     nationalId: row.national_id,
-    priority: row.priority,
+    ...mapVisitPriorityFields(row),
+    criticalFlag: Boolean(row.critical_flag),
     chiefComplaint: row.chief_complaint,
     status: row.status,
     arrivedAt: row.arrived_at,
@@ -82,6 +84,9 @@ async function getChiefOverview() {
       v.public_code,
       v.status,
       v.priority,
+      v.registration_priority,
+      v.clinical_priority_validated_at,
+      v.critical_flag,
       v.chief_complaint,
       v.arrived_at,
       v.last_called_at,
@@ -151,24 +156,36 @@ async function getChiefOverview() {
   );
 
   const bedsResult = await query(
-    `SELECT 
-      zone_id,
-      zone_name,
-      zone_color,
-      room_id,
-      room_name,
-      bed_id,
-      bed_label,
-      occupied,
-      visit_id,
-      public_code,
-      visit_status,
-      priority,
-      first_name,
-      last_name,
-      assigned_at
-    FROM bed_board
-    ORDER BY zone_id, room_id, bed_id`
+    `SELECT
+      bb.zone_id,
+      bb.zone_name,
+      bb.zone_color,
+      bb.room_id,
+      bb.room_name,
+      bb.bed_id,
+      bb.bed_label,
+      bb.operational_status,
+      bb.occupied,
+      bb.visit_id,
+      bb.public_code,
+      bb.visit_status,
+      bb.priority,
+      bb.first_name,
+      bb.last_name,
+      bb.assigned_at,
+      d.id AS doctor_id,
+      d.first_name AS doctor_first_name,
+      d.last_name AS doctor_last_name,
+      (
+        SELECT COUNT(*)::int
+        FROM room_team_nurses rtn
+        JOIN users nu ON nu.id = rtn.nurse_id AND nu.is_active = true
+        WHERE rtn.room_team_id = rt.id
+      ) AS nurse_count
+    FROM bed_board bb
+    LEFT JOIN room_teams rt ON rt.room_id = bb.room_id
+    LEFT JOIN users d ON d.id = rt.doctor_id AND d.is_active = true
+    ORDER BY bb.zone_id, bb.room_id, bb.bed_id`
   );
 
   const pipeline = {
@@ -232,7 +249,13 @@ async function getChiefOverview() {
     roomName: row.room_name,
     bedId: row.bed_id,
     bedLabel: row.bed_label,
+    operationalStatus: row.operational_status,
     occupied: Boolean(row.occupied),
+    staffed: Boolean(row.doctor_id) && Number(row.nurse_count) > 0,
+    doctorName: row.doctor_first_name
+      ? `${row.doctor_first_name} ${row.doctor_last_name}`.trim()
+      : null,
+    nurseCount: Number(row.nurse_count || 0),
     visitId: row.visit_id,
     publicCode: row.public_code,
     visitStatus: row.visit_status,
@@ -247,7 +270,9 @@ async function getChiefOverview() {
   return {
     stats: {
       active: activeCards.length,
-      priority12: activeCards.filter((c) => c.priority <= 2).length,
+      priority12: activeCards.filter(
+        (c) => c.criticalFlag || (c.priorityValidated && c.priority <= 2),
+      ).length,
       medianWaitMinutes: median(waitMinutes),
       bedsOccupied,
       bedsFree,

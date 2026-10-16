@@ -1,0 +1,73 @@
+erDiagram
+    ZONES ||--o{ ROOMS : contient
+    ROOMS ||--o{ BEDS : contient
+    ROOM_TEAMS ||--o{ ROOM_TEAM_NURSES : compose
+    ROOMS ||--o| ROOM_TEAMS : equipe
+    USERS ||--o{ RESOURCE_STATUS_EVENTS : actionne
+
+    PATIENTS ||--o{ VISITS : visite
+    VISITS ||--o{ TRIAGE_ASSESSMENTS : triage
+    VISITS ||--o{ BED_ASSIGNMENTS : occupe
+    BEDS ||--o{ BED_ASSIGNMENTS : accueille
+    VISITS ||--o{ CONSULTATIONS : consultation
+    USERS ||--o{ CONSULTATIONS : medecin
+    VISITS ||--o{ EXAMS : examen
+    VISITS ||--o{ CARE_TASKS : tache
+    VISITS ||--o{ VISIT_EVENTS : trace
+    VISITS ||--o{ TRANSFER_REQUESTS : transfert
+    VISITS ||--o{ HANDOFF_REQUESTS : relais
+    VISITS ||--o{ OPERATIONAL_ALERTS : alerte
+
+    AGENT_RUNS ||--o{ AGENT_RECOMMENDATIONS : produit
+    AGENT_RUNS ||--o{ AGENT_APPROVALS : soumet
+    AGENT_APPROVALS ||--o| AGENT_ACTIONS : execute
+    USERS ||--o{ VISIT_EVENTS : acteur
+
+    PATIENTS {
+        int id PK
+        text national_id UK
+        text first_name
+        text last_name
+    }
+    VISITS {
+        int id PK
+        int patient_id FK
+        text status
+        text care_stage
+        text outcome
+        smallint priority
+        bool critical_flag
+        text current_orientation
+        timestamptz arrived_at
+        timestamptz closed_at
+    }
+    BEDS {
+        int id PK
+        int room_id FK
+        text resource_type
+        text operational_status
+        bool is_active
+    }
+    BED_ASSIGNMENTS {
+        int id PK
+        int visit_id FK
+        int bed_id FK
+        timestamptz assigned_at
+        timestamptz released_at
+    }
+    VISIT_EVENTS {
+        bigint id PK
+        int visit_id FK
+        text event_type
+        text from_status
+        text to_status
+        text idempotency_key
+        int actor_user_id FK
+        text actor_type
+    }
+    AGENT_APPROVALS {
+        int id PK
+        int run_id FK
+        text status
+        text action_type
+    }

@@ -1,0 +1,159 @@
+\chapter{Assurance qualité, sécurité et CI/CD}
+
+\section{Introduction}
+
+Ce chapitre traite d'un axe souvent négligé dans les rapports de stage : la \textbf{vérification de la qualité}, la \textbf{sécurité} et l'\textbf{industrialisation}. Nous présentons la stratégie de test et les résultats réellement obtenus, les mécanismes de sécurité et d'intégrité, puis la chaîne d'intégration et de livraison continue.
+
+\section{Stratégie de test}
+
+\subsection{Niveaux de test}
+
+La stratégie combine plusieurs niveaux complémentaires :
+
+\begin{itemize}
+    \item \textbf{tests unitaires} : fonctions pures de règles (supervision, indices d'enregistrement) ;
+    \item \textbf{tests d'intégrité} : invariants de ressources et transitions, exécutés contre une base isolée ;
+    \item \textbf{tests fonctionnels} : parcours par rôle (accueil, infirmier, médecin, chef) ;
+    \item \textbf{tests de concurrence} : affectation simultanée d'une même ressource ;
+    \item \textbf{tests de bout en bout} : scénario complet du parcours patient.
+\end{itemize}
+
+\subsection{Outillage}
+
+Les tests automatisés s'appuient sur le lanceur natif de Node.js (\texttt{node:test}) et \texttt{node:assert}, sans dépendance à un framework externe. Ils sont exécutés via des scripts npm (\texttt{test:v4}, \texttt{test:supervision}, \texttt{test:registration}). Un \textit{benchmark} de triage (\texttt{benchmarks/run-triage-benchmark.js}) mesure la latence du modèle NIM et enregistre ses résultats.
+
+\section{Tests automatisés et résultats}
+
+\subsection{Invariants de ressources — \texttt{npm run test:v4}}
+
+Ce test vérifie trois invariants du cycle de vie des lits :
+
+\begin{enumerate}
+    \item une ressource en \textbf{nettoyage} ne peut être affectée (rejet HTTP~409) ;
+    \item la libération d'une ressource la bascule en \textbf{nettoyage} (et non directement en « prêt ») ;
+    \item la transition directe vers « prêt » est refusée (HTTP~422), imposant le contrôle de remise en service.
+\end{enumerate}
+
+\subsection{Règles de supervision — \texttt{npm run test:supervision}}
+
+Ce test vérifie que \texttt{ruleConfigured} n'active \textbf{jamais} un seuil de délai qui n'est pas approuvé : une règle activée sans approbation est considérée inactive, garantissant qu'aucune alerte SLA non validée ne soit émise.
+
+\subsection{Intelligence d'enregistrement — \texttt{npm run test:registration}}
+
+Ce test vérifie que les \textbf{indices d'enregistrement} signalent un motif à risque, une arrivée en ambulance ou une priorité d'enregistrement élevée, sans jamais modifier la priorité clinique.
+
+\subsection{Analytique patient}
+
+Le module analytique dispose de son propre test vérifiant la cohérence des agrégats.
+
+\begin{table}[H]
+\centering
+\caption{Matrice de tests — extrait}
+\label{tab:tests}
+\small
+\begin{tabular}{|l|l|l|l|}
+\hline
+\textbf{ID} & \textbf{Scénario} & \textbf{Résultat attendu} & \textbf{Statut} \\
+\hline
+T1 & Affecter un lit en nettoyage & Rejet (409) & OK \\
+\hline
+T2 & Libérer un lit & Passe en nettoyage & OK \\
+\hline
+T3 & Forcer « prêt » sans contrôle & Rejet (422) & OK \\
+\hline
+T4 & Seuil SLA non approuvé & Inactif & OK \\
+\hline
+T5 & Indice motif critique & Suggestion sans mutation & OK \\
+\hline
+T6 & Double affectation du même lit & Un succès, un conflit (409) & OK \\
+\hline
+T7 & Double enregistrement (idempotence) & Une seule visite & OK \\
+\hline
+T8 & Parcours E2E complet & Transitions cohérentes & OK \\
+\hline
+\end{tabular}
+\end{table}
+
+\section{Cas d'étude : concurrence sur l'affectation d'un lit}
+
+\subsection{Le problème}
+
+Deux infirmiers consultent un même lit libre et cliquent « Affecter » au même instant. Sans précaution, deux patients pourraient se retrouver sur le même lit.
+
+\subsection{La solution retenue et sa vérification}
+
+L'affectation s'exécute dans une transaction : la visite est verrouillée (\texttt{SELECT ... FOR UPDATE}), l'absence d'affectation active est vérifiée, puis l'affectation est insérée et le statut mis à jour. Deux transactions concurrentes sont sérialisées par le verrou : la seconde détecte l'occupation et échoue proprement avec un conflit. Ce comportement est décrit par le test~T6.
+
+\section{Tests fonctionnels et bout en bout}
+
+Les parcours par rôle ont été validés manuellement et par scénario : enregistrement à l'accueil, triage infirmier, appel et placement, prise en charge et clôture. Le scénario de référence (documenté dans le dépôt) vérifie que chaque transition produit l'événement attendu dans \texttt{visit\_events}, que la phase de soin reste cohérente et qu'aucune erreur~4xx/5xx inattendue ne survient.
+
+\section{Gestion des erreurs}
+
+Le backend normalise les erreurs : les collisions d'unicité et de clé étrangère PostgreSQL sont converties en réponses HTTP claires (409/400), et les erreurs du fournisseur IA (délai, sortie invalide, erreur HTTP) sont traduites en codes explicites. Aucune trace technique brute n'est renvoyée au client.
+
+\section{Sécurité et intégrité}
+
+\subsection{Contrôle d'accès}
+
+L'accès repose sur deux niveaux : le rôle et la \textbf{capacité}. Un point d'entrée vérifie systématiquement la capacité requise, de sorte qu'un rôle ne peut exécuter que les actions autorisées, indépendamment de l'interface.
+
+\subsection{Sécurité des échanges et des secrets}
+
+Les échanges sont authentifiés par jeton JWT ; les mots de passe sont hachés. Les secrets (chaîne de connexion, clé JWT, clé du fournisseur IA) sont placés dans des fichiers \texttt{.env} \textbf{jamais versionnés} ; un pipeline échoue si un tel fichier est committé. Les en-têtes de sécurité (Helmet) et CORS sont configurés.
+
+\subsection{Intégrité et traçabilité}
+
+L'intégrité est garantie par les transactions et les contraintes SQL. La traçabilité repose sur \texttt{visit\_events}, qui enregistre pour chaque action l'acteur (utilisateur, agent ou système), l'horodatage, les états source et cible et les métadonnées. Cette piste constitue la base de l'audit et de la conformité.
+
+\subsection{Accès aux données patients}
+
+L'accès est restreint par rôle, et le service ciblé vérifie en plus que le soignant est bien rattaché à la salle du patient. Les données restent sous le contrôle du personnel autorisé.
+
+\section{Qualité du code}
+
+La qualité est soutenue par : une organisation en couches (séparation routes/services/lib), une convention de nommage (\texttt{*Routes.js}, \texttt{*Service.js}), un linter (Oxlint) côté frontend, la journalisation structurée des actions de visite et des messages de commit lisibles.
+
+\section{Industrialisation et CI/CD}
+
+\subsection{Gestion du code source}
+
+Le dépôt est géré avec Git. Un fichier \texttt{.gitignore} racine exclut les dépendances et les secrets. Des \textbf{hooks pre-commit} fournissent une première barrière locale avant tout commit.
+
+\subsection{Intégration continue}
+
+Un workflow GitHub Actions, « secret guard », s'exécute à chaque \texttt{push} et \texttt{pull request}. Il vérifie qu'aucun fichier \texttt{.env} (hors \texttt{.example}) n'est suivi par Git.
+
+\begin{lstlisting}[caption={Extrait du pipeline GitHub Actions « secret guard »},label={lst:ci}]
+name: Secret guard
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  block-env-files:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fail if .env files are tracked
+        run: |
+          bad=$(git ls-files | grep -E '(^|/)\.env(\.|$)' \
+            | grep -Ev '\.env\.example$' || true)
+          if [ -n "$bad" ]; then
+            echo "::error::Tracked env files must not be in the repo:"
+            echo "$bad"; exit 1
+          fi
+\end{lstlisting}
+
+\subsection{Environnements et livraison}
+
+Deux environnements coexistent : le développement local (frontend Vite, backend Node, base Neon managée) et l'environnement de démonstration. La livraison d'un nouvel incrément suit une procédure reproductible : application des migrations SQL versionnées, puis démarrage du serveur.
+
+\subsection{Limites et améliorations de la CI/CD}
+
+Le pipeline actuel se concentre sur la protection des secrets. Son extension \textbf{proposée} comprendrait l'exécution automatique des tests, la vérification du lint et la construction du frontend à chaque \texttt{pull request}, ainsi qu'un déploiement automatisé. Cette extension est présentée comme une évolution et non comme un acquis.
+
+\section{Conclusion}
+
+La qualité est vérifiée par des tests explicites et des cas d'étude (concurrence, idempotence), la sécurité repose sur le RBAC, JWT et la traçabilité, et l'industrialisation est assurée par Git, les hooks et un pipeline minimal. Le chapitre suivant dresse l'évaluation, le bilan et les perspectives.

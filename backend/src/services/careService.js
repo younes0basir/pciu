@@ -13,6 +13,7 @@ const {
   assertDoctorCanManageVisit,
   assertNurseCanManageVisit,
 } = require('./roomAccessService');
+const { releaseBedToTurnover } = require('./resourceService');
 
 async function startObservation(visitId, actorUser, actionContext = {}) {
   return withTransaction(async (client) => {
@@ -200,11 +201,10 @@ async function completeVisit(visitId, data, actorUser, actionContext = {}) {
     );
 
     if (bedAssign.rowCount > 0) {
-      const bedId = bedAssign.rows[0].bed_id;
-      await client.query(
-        `UPDATE beds SET operational_status = 'cleaning' WHERE id = $1`,
-        [bedId],
-      );
+      await releaseBedToTurnover(client, bedAssign.rows[0].bed_id, actorUser, {
+        note: releaseReason || outcome,
+        visitId,
+      });
     }
 
     await client.query(

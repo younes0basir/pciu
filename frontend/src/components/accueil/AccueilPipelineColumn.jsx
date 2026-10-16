@@ -1,4 +1,7 @@
+import { Inbox } from 'lucide-react'
+
 import { AccueilQueueCard } from '@/components/accueil/AccueilQueueCard.jsx'
+import { EmptyState } from '@/components/ui/EmptyState.jsx'
 
 export function AccueilPipelineColumn({ title, subtitle, visits, tone, onSelectVisit }) {
   const toneClasses = {
@@ -21,7 +24,12 @@ export function AccueilPipelineColumn({ title, subtitle, visits, tone, onSelectV
       </header>
       <div className="flex max-h-[420px] flex-1 flex-col gap-2 overflow-y-auto pr-0.5">
         {visits.length === 0 ? (
-          <p className="py-8 text-center text-xs font-semibold text-slate-400">Aucun patient</p>
+          <EmptyState
+            compact
+            icon={Inbox}
+            title="Aucun patient"
+            description="Cette colonne est vide pour le moment."
+          />
         ) : (
           visits.map((v) => (
             <AccueilQueueCard

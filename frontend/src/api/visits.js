@@ -15,6 +15,19 @@ export function registerVisit(payload) {
   })
 }
 
+export function fetchRegisterPreflight(nationalId) {
+  const qs = new URLSearchParams({ nationalId: nationalId.trim() })
+  return fetchApi(`/visits/register/preflight?${qs.toString()}`)
+}
+
+export function fetchRegisterHints({ chiefComplaint, arrivalMode, registrationPriority }) {
+  const qs = new URLSearchParams()
+  if (chiefComplaint) qs.set('chiefComplaint', chiefComplaint)
+  if (arrivalMode) qs.set('arrivalMode', arrivalMode)
+  if (registrationPriority != null) qs.set('registrationPriority', String(registrationPriority))
+  return fetchApi(`/visits/register/hints?${qs.toString()}`)
+}
+
 export function callVisit(visitId) {
   return fetchApi(`/visits/${visitId}/call`, { method: 'POST', body: '{}' })
 }

@@ -1,6 +1,6 @@
 import { formatDuration, priorityBadgeClass, stuckBadgeClass } from '@/components/chief/chiefUtils.js'
 
-export function ChiefVisitCard({ visit, onSelect }) {
+export function ChiefVisitCard({ visit, onSelect, queueRank = null }) {
   const complaint =
     visit.chiefComplaint?.length > 72
       ? `${visit.chiefComplaint.slice(0, 72)}…`
@@ -19,7 +19,14 @@ export function ChiefVisitCard({ visit, onSelect }) {
       }`}
     >
       <div className="flex items-start justify-between gap-2">
-        <span className="font-mono text-xs font-bold text-slate-600">{visit.publicCode}</span>
+        <span className="flex items-center gap-1.5">
+          {queueRank ? (
+            <span className="rounded-md bg-slate-900 px-1.5 py-0.5 text-[10px] font-extrabold text-white">
+              N{queueRank}
+            </span>
+          ) : null}
+          <span className="font-mono text-xs font-bold text-slate-600">{visit.publicCode}</span>
+        </span>
         <span
           className={`rounded-md px-1.5 py-0.5 text-[10px] font-extrabold ring-1 ring-inset ${priorityBadgeClass(visit.priority)}`}
         >

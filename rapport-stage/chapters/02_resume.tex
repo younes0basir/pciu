@@ -1,0 +1,29 @@
+\chapter*{Résumé}
+\addcontentsline{toc}{chapter}{Résumé}
+
+Ce rapport de stage présente la conception, la réalisation et l'évaluation de PICU (Plateforme Intelligente de Coordination des Urgences), une application web destinée au service des urgences du Centre Hospitalier Universitaire Hassan II de Fès. Le projet répond à un double constat : la dispersion de l'information entre les acteurs (accueil, triage, médecine) et l'absence de visibilité en temps réel sur l'occupation des zones, des salles et des lits.
+
+Plutôt que de décrire uniquement des fonctionnalités, ce rapport met l'accent sur la \textbf{démarche d'ingénierie logicielle} : analyse des besoins, méthodologie de développement, modélisation, conception de la base de données, architecture, assurance qualité, sécurité et industrialisation. L'originalité du travail réside dans la transformation d'un processus hospitalier informel en un \textbf{workflow transactionnel} explicite : une machine à états de la visite (\texttt{waiting}, \texttt{placed}, \texttt{in\_treatment}, puis états terminaux), des transitions autorisées, des priorités cliniques P1--P5, des files d'attente calculées et une gestion des ressources verrouillée en base de données.
+
+La plateforme est construite sur une architecture client-serveur : un frontend React~19 / Vite / TailwindCSS, un backend Node.js / Express exposant une API REST, une base PostgreSQL (hébergée sur Neon) et une communication temps réel par \textbf{Socket.IO}. La sécurité repose sur un contrôle d'accès par rôle et capacités (RBAC), des jetons JWT, des transactions PostgreSQL et une piste d'audit exhaustive (\texttt{visit\_events}). Des modules avancés complètent le socle : supervision opérationnelle avec indicateurs SLA, gestion du cycle de vie des lits, demandes de transfert et de relève, examens et tâches de soin, suivi analytique, ainsi qu'une couche d'\textbf{assistance IA} fondée sur NVIDIA NIM (triage, flux de lits, capacité, documentation) fonctionnant en mode supervisé avec approbation humaine.
+
+La qualité est vérifiée par une stratégie de tests explicite : tests unitaires et d'intégrité basés sur \texttt{node:test} (invariants de ressources, règles de supervision, intelligence d'enregistrement, analytics), tests fonctionnels par rôle, tests de concurrence sur l'affectation des lits et scénario de bout en bout. L'industrialisation s'appuie sur Git, des hooks pre-commit et un pipeline GitHub Actions « secret guard ».
+
+Ce rapport est organisé en six chapitres. Le premier présente l'organisme d'accueil et le contexte du projet. Le deuxième formalise l'analyse et la spécification des besoins. Le troisième expose la méthodologie et la conception. Le quatrième détaille la réalisation. Le cinquième traite de l'assurance qualité, de la sécurité et de la CI/CD. Le sixième dresse l'évaluation, le bilan et les perspectives, notamment l'assistance IA NVIDIA NIM.
+
+\textbf{Mots-clés :} PICU, Urgences, Workflow transactionnel, Machine à états, Triage IA, RBAC, PostgreSQL, Socket.IO, CI/CD, Qualité logicielle
+
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+
+This internship report presents the design, implementation and evaluation of PICU (Intelligent Emergency Coordination Platform), a web application for the emergency department of the Hassan II University Hospital in Fez. The project addresses two problems: information dispersion between actors (registration, triage, physicians) and the lack of real-time visibility over zone, room and bed occupancy.
+
+Rather than describing features only, this report emphasizes the \textbf{software engineering process}: requirements analysis, development methodology, modelling, database design, architecture, quality assurance, security and deployment automation. The core contribution is the transformation of an informal hospital process into an explicit \textbf{transactional workflow}: a visit state machine (\texttt{waiting}, \texttt{placed}, \texttt{in\_treatment}, then terminal states), allowed transitions, P1--P5 clinical priorities, computed waiting lists and database-locked resource management.
+
+The platform uses a client-server architecture: a React~19 / Vite / TailwindCSS frontend, a Node.js / Express REST API, a PostgreSQL database (hosted on Neon) and \textbf{Socket.IO} real-time communication. Security relies on role and capability-based access control (RBAC), JWT tokens, PostgreSQL transactions and a complete audit trail (\texttt{visit\_events}). Advanced modules complete the foundation: supervision with SLA indicators, bed lifecycle management, transfer and handoff requests, exams and care tasks, analytics, and an \textbf{AI assistance} layer built on NVIDIA NIM (triage, bed flow, capacity, documentation) operating under human supervision.
+
+Quality is verified through an explicit testing strategy: unit and integrity tests based on \texttt{node:test}, role-based functional tests, concurrency tests on bed assignment, and an end-to-end scenario. Delivery automation relies on Git, pre-commit hooks and a GitHub Actions “secret guard” pipeline.
+
+The report is organised into six chapters: host organization and context; requirements analysis; methodology and design; implementation; quality assurance, security and CI/CD; and evaluation, review and perspectives.
+
+\textbf{Keywords:} PICU, Emergency Department, Transactional Workflow, State Machine, AI Triage, RBAC, PostgreSQL, Socket.IO, CI/CD, Software Quality

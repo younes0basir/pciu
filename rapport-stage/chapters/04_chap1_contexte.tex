@@ -1,0 +1,103 @@
+\chapter{Organisme d'accueil et contexte du projet}
+
+\section{Introduction}
+
+Ce chapitre présente l'organisme d'accueil, le cadre du stage, le fonctionnement actuel du service des urgences, les limites identifiées et la solution proposée. Il pose ainsi le \textit{pourquoi} du projet avant d'aborder le \textit{comment} dans les chapitres suivants.
+
+\section{Présentation de l'organisme d'accueil}
+
+\subsection{Le CHU Hassan II de Fès}
+
+Le Centre Hospitalier Universitaire Hassan II de Fès est un établissement public de santé de référence pour la région Fès--Meknès. Il assure trois missions indissociables :
+
+\begin{itemize}
+    \item \textbf{Soins} : prise en charge des urgences vitales et non vitales, hospitalisation et spécialités ;
+    \item \textbf{Enseignement} : formation des étudiants en médecine, des internes et du personnel paramédical ;
+    \item \textbf{Recherche} : développement de projets innovants, dont l'informatisation des services cliniques.
+\end{itemize}
+
+\subsection{Le service des urgences}
+
+Le service des urgences fonctionne 24~heures sur~24 et reçoit des patients adultes et pédiatriques. Il est organisé en zones spécialisées~: Triage, Déchocage, Pédiatrie, Médecine, Chirurgie et Observation. Chaque zone regroupe des salles, des lits et un personnel affecté selon la charge. Le Déchocage et la zone critique prennent en charge les urgences vitales, tandis que les zones Médecine et Chirurgie absorbent la majorité du flux.
+
+\subsection{Le Département Informatique}
+
+Le stage s'est déroulé au sein du Département Informatique de l'établissement, en lien fonctionnel avec l'encadrement médical du service des urgences. Ce positionnement a permis de confronter en continu les choix techniques aux contraintes cliniques et organisationnelles réelles.
+
+\section{Cadre du stage}
+
+\subsection{Objet et périmètre}
+
+L'objet du stage est la conception et la réalisation d'une plateforme de coordination des urgences, PICU, couvrant le parcours du patient depuis son enregistrement à l'accueil jusqu'à la clôture de sa prise en charge. Le périmètre fonctionnel comprend l'accueil, le triage, la file d'attente, l'orientation et le placement, la prise en charge médicale, la gestion des ressources et la supervision.
+
+\subsection{Livrables attendus}
+
+\begin{itemize}
+    \item une application web fonctionnelle (frontend, backend, base de données) ;
+    \item un modèle de données et une documentation d'architecture ;
+    \item une stratégie de tests et des résultats de validation ;
+    \item le présent rapport de stage et un support de soutenance.
+\end{itemize}
+
+\section{Fonctionnement actuel du service des urgences}
+
+\subsection{Accueil et enregistrement}
+
+Le réceptionniste recueille l'identité du patient, le motif de consultation et le mode d'arrivée. Un dossier administratif est créé ou mis à jour. Dans le fonctionnement manuel, cette étape repose sur des saisies répétées et des supports hétérogènes.
+
+\subsection{Triage clinique}
+
+Une infirmière trieuse évalue la gravité et attribue une priorité, généralement de P1 (urgent vital) à P5 (non urgent). Le triage est une décision clinique qui conditionne l'ordre de prise en charge.
+
+\subsection{Orientation et prise en charge}
+
+Après triage, le patient est orienté vers une zone, appelé depuis la file d'attente, placé sur une ressource (lit, fauteuil, box) puis pris en charge par un médecin. En cas d'erreur d'orientation, le médecin doit pouvoir transférer le patient vers une autre spécialité.
+
+\subsection{Gestion de la file d'attente et des ressources}
+
+La file est organisée par priorité clinique puis par ordre d'arrivée. La disponibilité des lits et la charge des salles déterminent la fluidité du service.
+
+\section{Limites du fonctionnement actuel}
+
+L'étude de l'existant met en évidence plusieurs limites :
+
+\begin{itemize}
+    \item \textbf{absence de visibilité temps réel} sur l'occupation des zones et des lits ;
+    \item \textbf{coordination difficile} entre accueil, soins et médecine, faute d'un référentiel commun ;
+    \item \textbf{ressaisies et pertes d'information}, sans traçabilité fiable des décisions ;
+    \item \textbf{risque de conflits d'affectation} lorsque plusieurs soignants manipulent les mêmes ressources ;
+    \item \textbf{difficulté à mesurer la performance} (temps d'attente, goulots d'étranglement, qualité du triage).
+\end{itemize}
+
+Ces limites justifient une refonte numérique dont le cœur n'est pas un écran supplémentaire, mais un \textbf{modèle de processus explicite et transactionnel}.
+
+\section{Problématique et solution proposée}
+
+\subsection{Problématique}
+
+Telle que formulée en introduction, la problématique interroge la capacité à formaliser le parcours patient, à garantir sa cohérence concurrente et à offrir une vision partagée en y intégrant une assistance IA supervisée.
+
+\subsection{Solution proposée}
+
+PICU est une application web centralisée offrant :
+
+\begin{itemize}
+    \item des \textbf{tableaux de bord par rôle} (accueil, infirmier, médecin, chef de service, administrateur) ;
+    \item un \textbf{moteur de workflow transactionnel} où chaque action de visite est atomique et auditable ;
+    \item une \textbf{gestion unifiée} des patients, des visites, des ressources et des équipes de salle ;
+    \item une \textbf{communication temps réel} par Socket.IO synchronisant tous les postes ;
+    \item une \textbf{couche de supervision} (SLA, alertes, blocages) pour le chef de service ;
+    \item une \textbf{assistance IA} optionnelle et supervisée (triage, lits, capacité, documentation).
+\end{itemize}
+
+\subsection{Apports attendus}
+
+La valeur attendue est triple : \textit{organisationnelle} (réduction des délais et de la charge cognitive), \textit{qualité} (traçabilité et fiabilité des données) et \textit{décisionnelle} (indicateurs objectifs pour piloter le service).
+
+\section{Distinction entre prototype et système validé}
+
+Il importe de préciser le statut du livrable. PICU est une \textbf{plateforme développée et évaluée dans le cadre du stage}. Elle n'est pas déployée en production clinique et n'a pas fait l'objet d'une validation médicale officielle par l'établissement. Les fonctionnalités et les modules d'IA y sont donc présentés \textbf{selon leur état réel d'implémentation} : socle transactionnel mature, modules V3/V4 opérationnels en environnement de démonstration, et assistance IA disponible mais en mode supervisé, non autonome en production. Cette honnêteté de cadrage est une exigence d'ingénierie pour une application de santé.
+
+\section{Conclusion}
+
+Ce chapitre a présenté l'organisme d'accueil, le fonctionnement des urgences, ses limites et la solution PICU, en insistant sur la nécessité d'un workflow explicite et traçable. Le chapitre suivant formalise l'analyse et la spécification des besoins.

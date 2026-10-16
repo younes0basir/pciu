@@ -1,0 +1,35 @@
+%% TO-BE propose - machine a etats unifiee
+%% 1) une seule fabrique de transition (assertCareStageTransition partout)
+%% 2) status legacy derive de care_stage (legacyStatusFromCareStage) ou supprime
+%% 3) contrainte/trigger DB de coherence care_stage <-> status <-> outcome
+%% 4) transitions tracees dans visit_events avec from/to
+stateDiagram-v2
+    [*] --> triage_pending: enregistrement
+    triage_pending --> waiting_care: triage valide (ou delai depasse)
+    triage_pending --> in_care: critical
+    triage_pending --> completed: parti avant vue
+
+    waiting_care --> in_care: placement + debut
+    waiting_care --> disposition_pending: decision sans passage en salle
+    waiting_care --> completed: parti avant vue
+
+    in_care --> in_observation: mise en observation
+    in_care --> disposition_pending: decision d'issue
+    in_care --> waiting_care: retour en attente
+
+    in_observation --> in_care: reprise de soins
+    in_observation --> disposition_pending: decision d'issue
+
+    disposition_pending --> completed: clôture confirmee
+    disposition_pending --> in_care: correction de decision
+
+    completed --> [*]
+
+    note right of triage_pending
+        Toute transition passe par:
+        careService.transition(visit, to, actor)
+        -> verifie la matrice
+        -> ecrit status derive + visit_events
+        -> publie l'evenement SSE
+        Aucun service ne peut ecrire care_stage directement.
+    end note

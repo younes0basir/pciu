@@ -1,0 +1,32 @@
+flowchart TB
+    subgraph Client[Couche présentation - React 19 + Vite]
+        UI[Pages et composants par rôle]
+        HOOK[Hooks data + SSE useVisitEventStream]
+        API[Client API REST]
+        UI --> HOOK --> API
+    end
+
+    subgraph Server[Couche application - Node.js / Express 4]
+        MW[Middleware auth JWT + RBAC requireCapability]
+        RT[Routeurs /api/visits /queue /care /workflow /resources /ai /events]
+        SVC[Services métier transactionnels]
+        BUS[visitEventBus - en mémoire]
+        AI[Agents IA + action-gateway]
+        MW --> RT --> SVC
+        RT --> AI
+        SVC --> BUS
+    end
+
+    subgraph Data[Couche données - PostgreSQL]
+        TB[(tables - 27)]
+        VW[(vues waiting_board / bed_board)]
+        EV[(visit_events - audit)]
+    end
+
+    API <-->|REST JSON| MW
+    HOOK <-->|SSE GET /api/events/stream| RT
+    SVC -->|requêtes paramétrées + transactions + FOR UPDATE| TB
+    SVC --> VW
+    SVC --> EV
+    AI --> SVC
+    EV -->|replay sinceId| RT

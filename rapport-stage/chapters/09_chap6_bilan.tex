@@ -1,0 +1,113 @@
+\chapter{Évaluation, bilan et perspectives}
+
+\section{Introduction}
+
+Ce chapitre évalue le projet au regard des objectifs initiaux, identifie les difficultés rencontrées et les solutions adoptées, expose les limites et les compétences acquises, puis trace les perspectives d'évolution, notamment l'assistance IA NVIDIA NIM.
+
+\section{Évaluation du projet}
+
+\subsection{Fonctionnalités réalisées et état de validation}
+
+Le tableau suivant confronte les objectifs initiaux aux fonctionnalités effectivement réalisées et à leur état de validation, en distinguant ce qui est mature, opérationnel en démonstration et préparatoire.
+
+\begin{table}[H]
+\centering
+\caption{Objectifs, réalisation et validation}
+\label{tab:evaluation}
+\small
+\begin{tabular}{|p{4.2cm}|p{5.4cm}|p{4cm}|}
+\hline
+\textbf{Objectif} & \textbf{Réalisation} & \textbf{État} \\
+\hline
+Workflow transactionnel & Machine à états, actions atomiques, audit & Mature, testé \\
+\hline
+File d'attente fiable & File calculée, appel non destructif & Mature \\
+\hline
+Triage structuré & Historique de triage, orientations, flag critique & Mature \\
+\hline
+Gestion des ressources & Cycle de vie des lits, verrous, plan & Mature, testé \\
+\hline
+Transferts et relèves & Demandes avec statuts et traçabilité & Opérationnel (démo) \\
+\hline
+Supervision SLA & Seuils, alertes, blocages & Opérationnel (démo) \\
+\hline
+Examens et tâches & Tables et endpoints dédiés & Opérationnel (démo) \\
+\hline
+Temps réel & Socket.IO + repli polling & Mature \\
+\hline
+Assistance IA & Agents, approbations, mode shadow & Préparatoire / supervisé \\
+\hline
+CI/CD & Hooks, pipeline secret guard & Mature (minimal) \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{Performance et fiabilité}
+
+Les temps de réponse de l'API sont courts et les mises à jour temps réel suppriment le besoin de rechargement. La fiabilité est démontrée par les tests d'intégrité et le cas de concurrence. La précision du triage IA n'est pas présentée ici comme un résultat clinique validé : elle relève d'une évaluation en cours et reste perfectible.
+
+\section{Difficultés rencontrées et solutions apportées}
+
+\begin{table}[H]
+\centering
+\caption{Difficultés et solutions}
+\label{tab:difficultes}
+\small
+\begin{tabular}{|p{4.6cm}|p{9cm}|}
+\hline
+\textbf{Difficulté} & \textbf{Solution adoptée} \\
+\hline
+Coordonner des actions concurrentes & Transactions + verrous \texttt{FOR UPDATE}, une affectation active par ressource. \\
+\hline
+Éviter les doublons d'action & Clés d'idempotence uniques au niveau des événements. \\
+\hline
+Faire évoluer un schéma en continu & Migrations additives et idempotentes, scripts dédiés par phase. \\
+\hline
+Séparer décisions cliniques et automatisation & Politique d'actions IA, approbations, mode shadow. \\
+\hline
+Sécuriser des données sensibles & RBAC par capacités, JWT, secrets hors dépôt, audit. \\
+\hline
+Garder tous les postes synchronisés & Socket.IO avec repli par interrogation périodique. \\
+\hline
+\end{tabular}
+\end{table}
+
+\section{Limites de la plateforme}
+
+\begin{itemize}
+    \item \textbf{Pas de déploiement clinique} : la plateforme est évaluée hors production, sans validation médicale officielle ;
+    \item \textbf{précision du triage IA} perfectible, justifiant la supervision humaine ;
+    \item \textbf{CI/CD partielle} : le pipeline couvre la protection des secrets, pas encore l'exécution automatisée des tests et le déploiement ;
+    \item \textbf{couverture de tests} inégale selon les modules ;
+    \item \textbf{absence d'intégration} avec le système d'information hospitalier (SIH).
+\end{itemize}
+
+\section{Compétences acquises}
+
+Ce stage a permis de mobiliser et de consolider : la modélisation des processus métier (machine à états, UML), la conception de bases de données relationnelles contraintes, le développement d'une API REST sécurisée, la gestion de la concurrence, la traçabilité applicative, la mise en place d'une stratégie de tests et les bases de l'industrialisation logicielle. Sur le plan humain, il a renforcé la capacité à dialoguer avec des professionnels de santé pour traduire des besoins cliniques en exigences techniques.
+
+\section{Perspectives}
+
+\subsection{Assistance IA NVIDIA NIM}
+
+L'évolution la plus prometteuse est le renforcement et la validation progressive de la couche d'assistance IA. Les axes envisagés : enrichir le contexte de triage, industrialiser l'évaluation en mode shadow, mesurer la précision priorité et orientation sur un jeu de cas cliniques, et étendre le périmètre des agents (documentation, flux de lits, capacité) sous gouvernance stricte.
+
+\subsection{Industrialisation complète}
+
+Étendre la CI/CD : exécution automatique de \texttt{test:v4}, \texttt{test:supervision} et \texttt{test:registration} à chaque \texttt{pull request}, vérification du lint, construction du frontend et déploiement automatisé vers un environnement de recette.
+
+\subsection{Interopérabilité hospitalière}
+
+Préparer l'interopérabilité avec le SIH via des standards comme HL7/FHIR, afin d'échanger les admissions, les identités et les comptes rendus.
+
+\subsection{Indicateurs et pilotage}
+
+Enrichir la supervision d'indicateurs avancés : taux d'acceptation des recommandations IA, taux de réaffectation, temps d'attente par zone et par priorité, taux d'occupation des lits.
+
+\subsection{Chemin vers une validation clinique}
+
+Structurer une démarche de validation : définition d'indicateurs de sécurité, revue par les équipes médicales, protocole d'évaluation en conditions contrôlées et gouvernance des données.
+
+\section{Conclusion}
+
+Le projet atteint ses objectifs d'ingénierie : un workflow explicite, fiable et traçable, des interfaces par rôle, une supervision opérationnelle et une assistance IA supervisée. Ses limites, honnêtement exposées, tracent une feuille de route claire vers l'industrialisation, l'interopérabilité et, à terme, une validation clinique encadrée.

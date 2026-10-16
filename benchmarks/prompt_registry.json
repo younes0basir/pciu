@@ -1,0 +1,8 @@
+{
+  "prompts": [
+    { "agent": "documentation", "version": "documentation-v1", "status": "active" },
+    { "agent": "triage", "version": "triage-v1", "status": "active" },
+    { "agent": "bed_flow", "version": "bed-flow-v1", "status": "active" },
+    { "agent": "capacity", "version": "capacity-v1", "status": "active" }
+  ]
+}

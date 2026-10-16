@@ -1,0 +1,17 @@
+[
+  {
+    "id": "fr-chest-pain-01",
+    "locale": "fr",
+    "chiefComplaint": "Douleur thoracique aiguë, irradiation bras gauche",
+    "arrivalMode": "walk-in",
+    "vitals": { "hr": 110, "bp": "90/60", "spo2": 94 },
+    "expectedPriorityMax": 2
+  },
+  {
+    "id": "fr-ankle-sprain-01",
+    "locale": "fr",
+    "chiefComplaint": "Entorse cheville après chute, marche possible",
+    "arrivalMode": "walk-in",
+    "expectedPriorityMin": 4
+  }
+]

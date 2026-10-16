@@ -1,17 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Search, UserPlus, UsersRound } from 'lucide-react'
+import {
+  BarChart3,
+  BedDouble,
+  Bot,
+  LayoutDashboard,
+  UsersRound,
+} from 'lucide-react'
 
 import { checkBackendHealth } from '@/api.js'
 import { getStoredAuth, getHomeRouteForRole, logout } from '@/api/auth.js'
-import { RoleDashboardHeader, RolePrimaryButton } from '@/components/layout/RoleDashboardHeader.jsx'
+import { AppShell } from '@/components/layout/AppShell.jsx'
 import { DashboardAlert } from '@/components/layout/DashboardAlert.jsx'
-import { DashboardMain } from '@/components/layout/DashboardMain.jsx'
-import { DashboardPageIntro } from '@/components/layout/DashboardPageIntro.jsx'
-import { DashboardShell } from '@/components/layout/DashboardShell.jsx'
-import { DashboardTabBar } from '@/components/layout/DashboardTabBar.jsx'
-import { dashboardInputClass, dashboardSelectClass } from '@/components/layout/dashboardStyles.js'
 import { clearRoomTeam, fetchChiefOverview, fetchChiefTeams, saveRoomTeam } from '@/api/chief.js'
+import { fetchWorklists } from '@/api/careFlow.js'
 import {
   callVisit,
   closeVisit,
@@ -22,25 +24,6 @@ import {
   saveVisitConsultation,
   startVisitConsultation,
 } from '@/api/visits.js'
-import { ChiefActiveTable } from '@/components/chief/ChiefActiveTable.jsx'
-import { ChiefBedMap } from '@/components/chief/ChiefBedMap.jsx'
-import { ChiefClosedTodayTable } from '@/components/chief/ChiefClosedTodayTable.jsx'
-import { ChiefKpiBar } from '@/components/chief/ChiefKpiBar.jsx'
-import { ChiefPipelineColumn } from '@/components/chief/ChiefPipelineColumn.jsx'
-import { ChiefRegisterPatientModal } from '@/components/chief/ChiefRegisterPatientModal.jsx'
-import { ChiefSlaLegend } from '@/components/chief/ChiefSlaLegend.jsx'
-import { ChiefTeamsBoard } from '@/components/chief/ChiefTeamsBoard.jsx'
-import { ChiefStuckAlerts } from '@/components/chief/ChiefStuckAlerts.jsx'
-import { ChiefVisitDrawer } from '@/components/chief/ChiefVisitDrawer.jsx'
-import {
-  filterChiefVisits,
-  formatDuration,
-  OUTCOME_LABELS,
-  STUCK_FILTER_OPTIONS,
-} from '@/components/chief/chiefUtils.js'
-import { useVisitEventStream } from '@/hooks/useVisitEventStream.js'
-import { WorklistsPanel } from '@/components/workflow/WorklistsPanel.jsx'
-import { CapacityBanner } from '@/components/workflow/CapacityBanner.jsx'
 import {
   completeVisitDeparture,
   endObservation,
@@ -48,13 +31,36 @@ import {
   startObservation,
   transferVisitBed,
 } from '@/api/careFlow.js'
+import { ChiefCommandHero } from '@/components/chief/ChiefCommandHero.jsx'
+import { ChiefPipelinePlacement } from '@/components/chief/ChiefPipelinePlacement.jsx'
+import { ChiefRegisterPatientModal } from '@/components/chief/ChiefRegisterPatientModal.jsx'
+import { ChiefTeamsBoard } from '@/components/chief/ChiefTeamsBoard.jsx'
+import { ChiefVisitDrawer } from '@/components/chief/ChiefVisitDrawer.jsx'
+import { ChiefAiModePanel } from '@/components/chief/ChiefAiModePanel.jsx'
+import { BedPlanPanel } from '@/components/beds/BedPlanPanel.jsx'
+import { ResourceDetailsDrawer } from '@/components/resources/ResourceDetailsDrawer.jsx'
+import { PatientWorklistTable } from '@/components/workflow/PatientWorklistTable.jsx'
+import { ChiefHistorySection } from '@/components/chief/ChiefHistorySection.jsx'
+import { ChiefSidecar } from '@/components/chief/ChiefSidecar.jsx'
+import {
+  countStaffedAssignableBeds,
+  countUnstaffedFreeBeds,
+  formatDuration,
+  sortWaitingQueue,
+} from '@/components/chief/chiefUtils.js'
+import { useVisitEventStream } from '@/hooks/useVisitEventStream.js'
+import { useSupervisionDashboard } from '@/hooks/useSupervisionDashboard.js'
+import { PatientAnalyticsPanel } from '@/components/chief/PatientAnalyticsPanel.jsx'
 
 const REFRESH_MS = 30_000
 const CHIEF_ROLE = 'chief'
 
-const CHIEF_TABS = [
-  { id: 'flow', label: 'Supervision', icon: LayoutDashboard },
+const NAV_ITEMS = [
+  { id: 'flow', label: 'Supervision active', icon: LayoutDashboard },
+  { id: 'analytics', label: 'Analyse patients', icon: BarChart3 },
+  { id: 'beds', label: 'Plateau & lits', icon: BedDouble },
   { id: 'teams', label: 'Équipes & salles', icon: UsersRound },
+  { id: 'ai', label: 'Pilotage IA', icon: Bot },
 ]
 
 export default function ChiefDashboardPage() {
@@ -63,6 +69,11 @@ export default function ChiefDashboardPage() {
 
   const [workspace, setWorkspace] = useState('flow')
   const [overview, setOverview] = useState(null)
+  const [worklists, setWorklists] = useState(null)
+  const [worklistsLoading, setWorklistsLoading] = useState(false)
+  const [worklistsError, setWorklistsError] = useState(null)
+  const [activeWorklistTab, setActiveWorklistTab] = useState('triage')
+
   const [teams, setTeams] = useState(null)
   const [teamsError, setTeamsError] = useState(null)
   const [teamBusy, setTeamBusy] = useState(false)
@@ -71,45 +82,76 @@ export default function ChiefDashboardPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState(null)
 
+  // Filters
   const [search, setSearch] = useState('')
   const [priorityFilter, setPriorityFilter] = useState('all')
   const [zoneFilter, setZoneFilter] = useState('all')
-  const [stuckFilter, setStuckFilter] = useState('all')
 
+  // Modals & Drawer
   const [registerOpen, setRegisterOpen] = useState(false)
   const [drawerVisitId, setDrawerVisitId] = useState(null)
   const [drawerDetail, setDrawerDetail] = useState(null)
   const [drawerLoading, setDrawerLoading] = useState(false)
   const [detailTick, setDetailTick] = useState(0)
   const [actionBusy, setActionBusy] = useState(false)
+  const [resourceDrawerBed, setResourceDrawerBed] = useState(null)
+  const [alertAckBusyId, setAlertAckBusyId] = useState(null)
+  const [sidecarTab, setSidecarTab] = useState('alerts')
 
-  const priorityMax = priorityFilter === 'all' ? null : Number(priorityFilter)
+  const supervision = useSupervisionDashboard({
+    enabled: auth?.user?.role === 'chief',
+    zone: zoneFilter,
+  })
 
+  // Load all data
   const loadOverview = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true)
     else setLoading(true)
     setError(null)
     try {
-      const [data, health, staffResult] = await Promise.all([
+      const [overviewData, health, staffResult, worklistsData] = await Promise.all([
         fetchChiefOverview(),
         checkBackendHealth().catch(() => ({ status: 'error' })),
         fetchChiefTeams().then(
           (value) => ({ value, error: null }),
           (err) => ({ value: null, error: err instanceof Error ? err.message : 'Équipes indisponibles' })
         ),
+        fetchWorklists().catch((err) => {
+          setWorklistsError(err instanceof Error ? err.message : 'Worklists indisponibles')
+          return null
+        }),
       ])
-      setOverview(data)
+      setOverview(overviewData)
       setBackendHealth(health)
       setTeams(staffResult.value)
       setTeamsError(staffResult.error)
+      if (worklistsData) {
+        setWorklists(worklistsData)
+        setWorklistsError(null)
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erreur de chargement')
+      setError(err instanceof Error ? err.message : 'Erreur de chargement du tableau de bord')
     } finally {
       setLoading(false)
       setRefreshing(false)
     }
   }, [])
 
+  // Manual reload for worklists only
+  const reloadWorklists = useCallback(async () => {
+    setWorklistsLoading(true)
+    try {
+      const data = await fetchWorklists()
+      setWorklists(data)
+      setWorklistsError(null)
+    } catch (err) {
+      setWorklistsError(err instanceof Error ? err.message : 'Erreur actualisation worklists')
+    } finally {
+      setWorklistsLoading(false)
+    }
+  }, [])
+
+  // Auth guard
   useEffect(() => {
     if (!auth?.token) {
       navigate('/login')
@@ -122,14 +164,23 @@ export default function ChiefDashboardPage() {
     loadOverview()
   }, [auth?.token, auth?.user?.role, navigate, loadOverview])
 
+  // Periodic polling fallback (30s)
   useEffect(() => {
     if (auth?.user?.role !== 'chief') return undefined
-    const id = setInterval(() => loadOverview(true), REFRESH_MS)
+    const id = setInterval(() => {
+      loadOverview(true)
+      supervision.reload(true)
+    }, REFRESH_MS)
     return () => clearInterval(id)
-  }, [auth?.user?.role, loadOverview])
+  }, [auth?.user?.role, loadOverview, supervision.reload])
 
-  useVisitEventStream(() => loadOverview(true), auth?.user?.role === 'chief')
+  // Shared SSE Stream subscription
+  useVisitEventStream(() => {
+    loadOverview(true)
+    supervision.reload(true)
+  }, auth?.user?.role === 'chief')
 
+  // Patient detail for drawer
   useEffect(() => {
     if (!drawerVisitId) {
       setDrawerDetail(null)
@@ -170,6 +221,21 @@ export default function ChiefDashboardPage() {
     setActionBusy(false)
   }
 
+  // Quick actions from worklist table
+  async function handleQuickCall(visitId) {
+    setActionBusy(true)
+    try {
+      await callVisit(visitId)
+      await loadOverview(true)
+    } finally {
+      setActionBusy(false)
+    }
+  }
+
+  async function handleQuickPlace(visitId) {
+    setDrawerVisitId(visitId)
+  }
+
   async function handleSaveTeam(roomId, payload) {
     setTeamBusy(true)
     try {
@@ -205,236 +271,264 @@ export default function ChiefDashboardPage() {
   async function handleRegisterPatient(payload) {
     const result = await registerVisit(payload)
     await loadOverview(true)
-    if (result?.visitId) {
-      setDrawerVisitId(result.visitId)
-    }
     return result
   }
 
-  const filterOpts = useMemo(
-    () => ({ search, priorityMax, zoneName: zoneFilter, stuckFilter }),
-    [search, priorityMax, zoneFilter, stuckFilter]
-  )
-
-  const applyFilter = useCallback(
-    (visits) => filterChiefVisits(visits || [], filterOpts),
-    [filterOpts]
-  )
-
   const pipeline = overview?.pipeline
-  const filtered = useMemo(() => {
-    if (!pipeline) return null
-    return {
-      waitingUncalled: applyFilter(pipeline.waitingUncalled),
-      waitingCalled: applyFilter(pipeline.waitingCalled),
-      placed: applyFilter(pipeline.placed),
-      inTreatment: applyFilter(pipeline.inTreatment),
-      closedToday: applyFilter(overview.closedToday || []),
-      activeAll: applyFilter(overview.activeAll || []),
-      stuckAlerts: applyFilter(overview.stuckAlerts || []),
-    }
-  }, [pipeline, overview?.closedToday, overview?.activeAll, overview?.stuckAlerts, applyFilter])
+  const waitingOrder = useMemo(
+    () => sortWaitingQueue([...(pipeline?.waitingUncalled || []), ...(pipeline?.waitingCalled || [])]),
+    [pipeline]
+  )
+
+  const staffedAssignableBeds = useMemo(
+    () => countStaffedAssignableBeds(overview?.beds),
+    [overview?.beds]
+  )
+  const unstaffedFreeBeds = useMemo(() => countUnstaffedFreeBeds(overview?.beds), [overview?.beds])
+
+  const placementCapacityTick = useMemo(
+    () =>
+      [
+        overview?.timestamp,
+        staffedAssignableBeds,
+        unstaffedFreeBeds,
+        waitingOrder.length,
+        waitingOrder[0]?.visitId,
+      ].join(':'),
+    [overview?.timestamp, staffedAssignableBeds, unstaffedFreeBeds, waitingOrder]
+  )
+
+  const formattedLastUpdated = useMemo(() => {
+    if (!overview?.timestamp) return null
+    return new Date(overview.timestamp).toLocaleTimeString('fr-FR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    })
+  }, [overview?.timestamp])
 
   return (
-    <DashboardShell role={CHIEF_ROLE}>
-      <RoleDashboardHeader
-        role={CHIEF_ROLE}
-        badgeLabel="Chef de service"
-        subtitle="Supervision du parcours urgences · actualisation 30 s"
-        backendHealth={backendHealth}
-        refreshing={refreshing}
-        onRefresh={() => loadOverview(true)}
-        user={auth?.user}
-        onLogout={() => {
-          void logout()
-          navigate('/login')
-        }}
-      />
+    <AppShell
+      role={CHIEF_ROLE}
+      user={auth?.user}
+      backendHealth={backendHealth}
+      refreshing={refreshing}
+      onRefresh={() => {
+        loadOverview(true)
+        supervision.reload(true)
+      }}
+      onLogout={() => {
+        void logout()
+        navigate('/login')
+      }}
+      searchValue={search}
+      onSearchChange={setSearch}
+      searchPlaceholder="Recherche patient (Nom, code, CIN…)"
+      navItems={NAV_ITEMS}
+      activeNavId={workspace}
+      onSelectNav={setWorkspace}
+      lastUpdated={formattedLastUpdated}
+    >
+      {/* ERROR BANNER */}
+      {error ? (
+        <div className="mb-4">
+          <DashboardAlert variant="error">{error}</DashboardAlert>
+        </div>
+      ) : null}
 
-      <DashboardMain>
-        <DashboardPageIntro
-          title={workspace === 'teams' ? 'Équipes & salles' : 'Tableau de supervision'}
-          description={
-            workspace === 'teams'
-              ? 'Médecins, infirmières liées et salle dont ils ont la charge.'
-              : 'Supervision du parcours urgences, SLA et actions sur les visites.'
-          }
-          meta={`Dernière mise à jour ${overview?.timestamp ? new Date(overview.timestamp).toLocaleTimeString('fr-FR') : '—'}`}
-          tabs={
-            <DashboardTabBar
-              role={CHIEF_ROLE}
-              tabs={CHIEF_TABS}
-              activeId={workspace}
-              onChange={setWorkspace}
-              ariaLabel="Espaces du chef de service"
-            />
-          }
-          actions={
-            workspace === 'flow' ? (
-              <>
-                <RolePrimaryButton role={CHIEF_ROLE} onClick={() => setRegisterOpen(true)}>
-                  <UserPlus className="size-4" />
-                  Nouveau patient
-                </RolePrimaryButton>
-                <div className="relative sm:w-56">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="search"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Nom, code, CIN…"
-                    className={`${dashboardInputClass} pl-10`}
-                  />
-                </div>
-                <select
-                  value={priorityFilter}
-                  onChange={(e) => setPriorityFilter(e.target.value)}
-                  className={dashboardSelectClass}
-                >
-                  <option value="all">Toutes priorités</option>
-                  <option value="2">P1–P2</option>
-                  <option value="3">P1–P3</option>
-                  <option value="5">P1–P5</option>
-                </select>
-                <select
-                  value={zoneFilter}
-                  onChange={(e) => setZoneFilter(e.target.value)}
-                  className={dashboardSelectClass}
-                >
-                  <option value="all">Toutes zones</option>
-                  <option value="__none__">Sans lit (salle d’attente)</option>
-                  {(overview?.zones || []).map((z) => (
-                    <option key={z} value={z}>
-                      {z}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={stuckFilter}
-                  onChange={(e) => setStuckFilter(e.target.value)}
-                  className={`max-w-[200px] ${dashboardSelectClass}`}
-                >
-                  {STUCK_FILTER_OPTIONS.map((opt) => (
-                    <option key={opt.id} value={opt.id}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </>
-            ) : null
-          }
-        />
-
-        {workspace === 'flow' ? <ChiefSlaLegend sla={overview?.sla} /> : null}
-
-        {error ? <DashboardAlert variant="error">{error}</DashboardAlert> : null}
-
-        {loading && !overview ? (
-          <p className="py-20 text-center text-sm font-semibold text-slate-500">Chargement du tableau…</p>
-        ) : workspace === 'teams' ? (
-          <>
-            {teamsError ? <DashboardAlert variant="error">{teamsError}</DashboardAlert> : null}
-            <ChiefTeamsBoard
-              board={teams}
-              currentUserId={auth?.user?.id}
-              busy={teamBusy}
-              onSave={handleSaveTeam}
-              onClear={handleClearTeam}
-            />
-          </>
-        ) : (
-          <>
-            <ChiefKpiBar stats={overview?.stats} formatDuration={formatDuration} />
-
-            <CapacityBanner />
-
-            <WorklistsPanel onSelectVisit={(id) => setDrawerVisitId(id)} />
-
-            <ChiefStuckAlerts
-              alerts={filtered?.stuckAlerts ?? []}
-              sla={overview?.sla}
-              onSelectVisit={setDrawerVisitId}
-            />
-
+      {/* WORKSPACE: TEAMS */}
+      {workspace === 'teams' ? (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between pb-2 border-b border-border">
             <div>
-              <h2 className="mb-2 text-xs font-extrabold uppercase tracking-wide text-slate-500">
-                Pipeline Kanban
-              </h2>
-              <div className="grid gap-3 lg:grid-cols-5">
-              <ChiefPipelineColumn
-                title="En attente"
-                subtitle="Jamais appelé"
-                visits={filtered?.waitingUncalled ?? []}
-                tone="slate"
+              <h1 className="text-xl font-extrabold text-text-primary">
+                Affectations d’équipes par salle
+              </h1>
+              <p className="text-xs text-text-secondary">
+                Désignez les médecins référents et infirmiers affectés aux salles de soins.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setWorkspace('flow')}
+              className="text-xs font-bold text-primary hover:underline"
+            >
+              Retour à la supervision
+            </button>
+          </div>
+          {teamsError ? <DashboardAlert variant="error">{teamsError}</DashboardAlert> : null}
+          <ChiefTeamsBoard
+            board={teams}
+            currentUserId={auth?.user?.id}
+            busy={teamBusy}
+            onSave={handleSaveTeam}
+            onClear={handleClearTeam}
+          />
+        </div>
+      ) : workspace === 'ai' ? (
+        /* WORKSPACE: AI CONTROL */
+        <div className="space-y-4">
+          <div className="flex items-center justify-between pb-2 border-b border-border">
+            <div>
+              <h1 className="text-xl font-extrabold text-text-primary">
+                Pilotage IA & Coordination clinique
+              </h1>
+              <p className="text-xs text-text-secondary">
+                Configuration des services d'assistance, agents d'admission et analyse de capacité.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setWorkspace('flow')}
+              className="text-xs font-bold text-primary hover:underline"
+            >
+              Retour à la supervision
+            </button>
+          </div>
+          <ChiefAiModePanel />
+        </div>
+      ) : workspace === 'analytics' ? (
+        <PatientAnalyticsPanel refreshToken={overview?.timestamp ?? null} />
+      ) : workspace === 'beds' ? (
+        /* WORKSPACE: FULL BED MAP */
+        <div className="space-y-4">
+          <div className="flex items-center justify-between pb-2 border-b border-border">
+            <div>
+              <h1 className="text-xl font-extrabold text-text-primary">
+                Plan complet du plateau des lits
+              </h1>
+              <p className="text-xs text-text-secondary">
+                Cartographie complète des lits, statuts d'occupation et disponibilité opérationnelle.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setWorkspace('flow')}
+              className="text-xs font-bold text-primary hover:underline"
+            >
+              Retour à la supervision
+            </button>
+          </div>
+          <BedPlanPanel
+            beds={overview?.beds}
+            title="Plan complet des lits"
+            subtitle="Occupation en temps réel. Cliquez sur un lit occupé pour accéder au dossier."
+            assignFreeBeds={false}
+            onSelectOccupied={setDrawerVisitId}
+            onSelectResource={setResourceDrawerBed}
+          />
+          <ResourceDetailsDrawer
+            bed={resourceDrawerBed}
+            canMutate
+            onClose={() => setResourceDrawerBed(null)}
+            onUpdated={() => loadOverview(true)}
+          />
+        </div>
+      ) : (
+        /* WORKSPACE: MAIN FLOW / SUPERVISION COMMAND CENTER */
+        <div className="space-y-5">
+          <ChiefCommandHero
+            stats={overview?.stats}
+            pipeline={overview?.pipeline}
+            beds={overview?.beds}
+            supervisionKpis={supervision.kpis}
+            formatDuration={formatDuration}
+            lastUpdated={formattedLastUpdated}
+            onRegister={() => setRegisterOpen(true)}
+            onKpiClick={(target) => {
+              if (target === 'triage') setActiveWorklistTab('triage')
+              else if (target === 'beds') setWorkspace('beds')
+              else if (target === 'priority') setPriorityFilter('2')
+              else if (target === 'alerts') setSidecarTab('alerts')
+            }}
+          />
+
+          {supervision.error ? (
+            <DashboardAlert variant="info">{supervision.error}</DashboardAlert>
+          ) : null}
+
+          {/* 2. DUAL-COLUMN OPERATIONAL WORKSPACE (DESKTOP: ~65% / 35%) */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+            {/* LEFT / CENTER COLUMN: PRIMARY WORKFLOW & PATIENTS */}
+            <div className="lg:col-span-7 xl:col-span-8 min-w-0">
+              <PatientWorklistTable
+                worklists={worklists}
+                loading={worklistsLoading || (loading && !worklists)}
+                error={worklistsError}
+                onRefresh={reloadWorklists}
+                activeTab={activeWorklistTab}
+                onTabChange={setActiveWorklistTab}
                 onSelectVisit={setDrawerVisitId}
-              />
-              <ChiefPipelineColumn
-                title="En attente"
-                subtitle="Appelé, pas au lit"
-                visits={filtered?.waitingCalled ?? []}
-                tone="amber"
-                onSelectVisit={setDrawerVisitId}
-              />
-              <ChiefPipelineColumn
-                title="Au lit"
-                subtitle="En attente de consultation"
-                visits={filtered?.placed ?? []}
-                tone="sky"
-                onSelectVisit={setDrawerVisitId}
-              />
-              <ChiefPipelineColumn
-                title="En prise en charge"
-                subtitle="Consultation en cours"
-                visits={filtered?.inTreatment ?? []}
-                tone="emerald"
-                onSelectVisit={setDrawerVisitId}
-              />
-              <ChiefPipelineColumn
-                title="Clôturées aujourd’hui"
-                subtitle="Sortie / transfert / LWBS"
-                visits={
-                  filtered?.closedToday?.map((v) => ({
-                    ...v,
-                    chiefComplaint: v.outcome
-                      ? `${OUTCOME_LABELS[v.outcome] || v.outcome} · ${v.chiefComplaint || ''}`
-                      : v.chiefComplaint,
-                  })) ?? []
+                searchQuery={search}
+                priorityFilter={priorityFilter}
+                zoneFilter={zoneFilter}
+                onSearchChange={setSearch}
+                onPriorityFilterChange={setPriorityFilter}
+                onZoneFilterChange={setZoneFilter}
+                canCall={true}
+                canPlace={true}
+                onQuickCall={handleQuickCall}
+                onQuickPlace={handleQuickPlace}
+                actionBusy={actionBusy}
+                lead={
+                  <ChiefPipelinePlacement
+                    bare
+                    waiting={waitingOrder}
+                    staffedAssignableBeds={staffedAssignableBeds}
+                    unstaffedFreeBeds={unstaffedFreeBeds}
+                    capacityTick={placementCapacityTick}
+                    onApplied={() => loadOverview(true)}
+                    onOpenAi={() => setWorkspace('ai')}
+                    onOpenTeams={() => setWorkspace('teams')}
+                  />
                 }
-                tone="violet"
-                onSelectVisit={setDrawerVisitId}
-              />
-              </div>
-            </div>
-
-            <div className="grid gap-6 xl:grid-cols-2">
-              <ChiefActiveTable
-                visits={filtered?.activeAll ?? []}
-                onSelectVisit={setDrawerVisitId}
-              />
-              <ChiefClosedTodayTable
-                visits={filtered?.closedToday ?? []}
-                onSelectVisit={setDrawerVisitId}
               />
             </div>
 
-            <ChiefBedMap
-              beds={overview?.beds}
-              title="Plan des lits"
-              subtitle="Occupation en temps réel. Ouvrez un lit occupé pour le dossier."
-              assignFreeBeds={false}
-              onSelectOccupied={setDrawerVisitId}
-            />
-          </>
-        )}
-      </DashboardMain>
+            {/* RIGHT COLUMN: BOUNDED TABBED SIDECAR */}
+            <div className="lg:col-span-5 xl:col-span-4 min-w-0">
+              <ChiefSidecar
+                supervision={supervision}
+                overview={overview}
+                activeTab={sidecarTab}
+                onTabChange={setSidecarTab}
+                alertAckBusyId={alertAckBusyId}
+                onSelectVisit={setDrawerVisitId}
+                onAcknowledge={async (alertId) => {
+                  setAlertAckBusyId(alertId)
+                  try {
+                    await supervision.acknowledgeAlert(alertId)
+                  } finally {
+                    setAlertAckBusyId(null)
+                  }
+                }}
+                onOpenFullBedPlan={() => setWorkspace('beds')}
+                onBedUpdated={() => loadOverview(true)}
+                onOpenTeams={() => setWorkspace('teams')}
+              />
+            </div>
+          </div>
 
+          {/* 3. SECONDARY COLLAPSIBLE SECTION: REGISTRES & VISITES CLÔTURÉES */}
+          <ChiefHistorySection
+            activeVisits={overview?.activeAll || []}
+            closedVisits={overview?.closedToday || []}
+            onSelectVisit={setDrawerVisitId}
+            defaultExpanded={false}
+          />
+        </div>
+      )}
+
+      {/* NEW PATIENT REGISTRATION MODAL */}
       <ChiefRegisterPatientModal
         open={registerOpen}
         role={CHIEF_ROLE}
         onClose={() => setRegisterOpen(false)}
         onSubmit={handleRegisterPatient}
+        onOpenVisit={setDrawerVisitId}
       />
 
+      {/* PATIENT VISIT DRAWER */}
       <ChiefVisitDrawer
         open={Boolean(drawerVisitId)}
         loading={drawerLoading}
@@ -477,6 +571,6 @@ export default function ChiefDashboardPage() {
         allowExamActions
         onRecordMutated={reloadVisitDetail}
       />
-    </DashboardShell>
+    </AppShell>
   )
 }

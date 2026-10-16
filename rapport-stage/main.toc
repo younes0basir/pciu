@@ -1,0 +1,181 @@
+\babel@toc {french}{}\relax 
+\contentsline {chapter}{Remerciements}{1}{chapter*.1}%
+\contentsline {chapter}{Résumé}{2}{chapter*.2}%
+\contentsline {chapter}{Abstract}{4}{chapter*.3}%
+\contentsline {chapter}{Table des mati\`eres}{5}{section*.4}%
+\contentsline {chapter}{Table des figures}{9}{section*.5}%
+\contentsline {chapter}{Liste des tableaux}{10}{section*.6}%
+\contentsline {chapter}{Liste des acronymes}{11}{chapter*.7}%
+\contentsline {chapter}{Introduction générale}{12}{chapter*.8}%
+\contentsline {section}{\numberline {0.1}Contexte général}{12}{section.0.1}%
+\contentsline {section}{\numberline {0.2}Problématique}{12}{section.0.2}%
+\contentsline {section}{\numberline {0.3}Objectifs du projet}{13}{section.0.3}%
+\contentsline {section}{\numberline {0.4}Démarche d'ingénierie adoptée}{13}{section.0.4}%
+\contentsline {section}{\numberline {0.5}Méthodologie et outils}{13}{section.0.5}%
+\contentsline {section}{\numberline {0.6}Organisation du rapport}{14}{section.0.6}%
+\contentsline {chapter}{\numberline {1}Organisme d'accueil et contexte du projet}{15}{chapter.1}%
+\contentsline {section}{\numberline {1.1}Introduction}{15}{section.1.1}%
+\contentsline {section}{\numberline {1.2}Présentation de l'organisme d'accueil}{15}{section.1.2}%
+\contentsline {subsection}{\numberline {1.2.1}Le CHU Hassan II de Fès}{15}{subsection.1.2.1}%
+\contentsline {subsection}{\numberline {1.2.2}Le service des urgences}{15}{subsection.1.2.2}%
+\contentsline {subsection}{\numberline {1.2.3}Le Département Informatique}{16}{subsection.1.2.3}%
+\contentsline {section}{\numberline {1.3}Cadre du stage}{16}{section.1.3}%
+\contentsline {subsection}{\numberline {1.3.1}Objet et périmètre}{16}{subsection.1.3.1}%
+\contentsline {subsection}{\numberline {1.3.2}Livrables attendus}{16}{subsection.1.3.2}%
+\contentsline {section}{\numberline {1.4}Fonctionnement actuel du service des urgences}{16}{section.1.4}%
+\contentsline {subsection}{\numberline {1.4.1}Accueil et enregistrement}{16}{subsection.1.4.1}%
+\contentsline {subsection}{\numberline {1.4.2}Triage clinique}{17}{subsection.1.4.2}%
+\contentsline {subsection}{\numberline {1.4.3}Orientation et prise en charge}{17}{subsection.1.4.3}%
+\contentsline {subsection}{\numberline {1.4.4}Gestion de la file d'attente et des ressources}{17}{subsection.1.4.4}%
+\contentsline {section}{\numberline {1.5}Limites du fonctionnement actuel}{17}{section.1.5}%
+\contentsline {section}{\numberline {1.6}Problématique et solution proposée}{17}{section.1.6}%
+\contentsline {subsection}{\numberline {1.6.1}Problématique}{17}{subsection.1.6.1}%
+\contentsline {subsection}{\numberline {1.6.2}Solution proposée}{18}{subsection.1.6.2}%
+\contentsline {subsection}{\numberline {1.6.3}Apports attendus}{18}{subsection.1.6.3}%
+\contentsline {section}{\numberline {1.7}Distinction entre prototype et système validé}{18}{section.1.7}%
+\contentsline {section}{\numberline {1.8}Conclusion}{18}{section.1.8}%
+\contentsline {chapter}{\numberline {2}Analyse et spécification des besoins}{19}{chapter.2}%
+\contentsline {section}{\numberline {2.1}Introduction}{19}{section.2.1}%
+\contentsline {section}{\numberline {2.2}Étude du processus des urgences}{19}{section.2.2}%
+\contentsline {subsection}{\numberline {2.2.1}Processus cible}{19}{subsection.2.2.1}%
+\contentsline {subsection}{\numberline {2.2.2}Flux d'états}{20}{subsection.2.2.2}%
+\contentsline {section}{\numberline {2.3}Identification des acteurs}{20}{section.2.3}%
+\contentsline {section}{\numberline {2.4}Besoins fonctionnels}{20}{section.2.4}%
+\contentsline {subsection}{\numberline {2.4.1}Authentification et gestion des rôles}{20}{subsection.2.4.1}%
+\contentsline {subsection}{\numberline {2.4.2}Gestion des patients et des visites}{20}{subsection.2.4.2}%
+\contentsline {subsection}{\numberline {2.4.3}File d'attente et appel}{21}{subsection.2.4.3}%
+\contentsline {subsection}{\numberline {2.4.4}Triage structuré}{21}{subsection.2.4.4}%
+\contentsline {subsection}{\numberline {2.4.5}Gestion des ressources}{21}{subsection.2.4.5}%
+\contentsline {subsection}{\numberline {2.4.6}Prise en charge et consultations}{21}{subsection.2.4.6}%
+\contentsline {subsection}{\numberline {2.4.7}Orientation, transferts et relèves}{21}{subsection.2.4.7}%
+\contentsline {subsection}{\numberline {2.4.8}Supervision et alertes}{21}{subsection.2.4.8}%
+\contentsline {subsection}{\numberline {2.4.9}Assistance IA}{21}{subsection.2.4.9}%
+\contentsline {section}{\numberline {2.5}Besoins non fonctionnels}{22}{section.2.5}%
+\contentsline {section}{\numberline {2.6}Règles métier structurantes}{22}{section.2.6}%
+\contentsline {section}{\numberline {2.7}Diagramme de cas d'utilisation}{23}{section.2.7}%
+\contentsline {section}{\numberline {2.8}Description des principaux cas d'utilisation}{23}{section.2.8}%
+\contentsline {subsubsection}{\numberline {2.8.0.1}UC1 — Authentification et redirection par rôle}{23}{subsubsection.2.8.0.1}%
+\contentsline {subsubsection}{\numberline {2.8.0.2}UC2 — Enregistrement d'un patient}{24}{subsubsection.2.8.0.2}%
+\contentsline {subsubsection}{\numberline {2.8.0.3}UC3 — Triage clinique}{24}{subsubsection.2.8.0.3}%
+\contentsline {subsubsection}{\numberline {2.8.0.4}UC4 — Appel et placement}{24}{subsubsection.2.8.0.4}%
+\contentsline {subsubsection}{\numberline {2.8.0.5}UC5 — Prise en charge médicale}{24}{subsubsection.2.8.0.5}%
+\contentsline {subsubsection}{\numberline {2.8.0.6}UC6 — Transfert et relève}{24}{subsubsection.2.8.0.6}%
+\contentsline {subsubsection}{\numberline {2.8.0.7}UC7 — Supervision}{24}{subsubsection.2.8.0.7}%
+\contentsline {subsubsection}{\numberline {2.8.0.8}UC8 — Assistance IA}{24}{subsubsection.2.8.0.8}%
+\contentsline {subsubsection}{\numberline {2.8.0.9}UC9 — Administration}{24}{subsubsection.2.8.0.9}%
+\contentsline {section}{\numberline {2.9}Matrice de traçabilité des exigences}{25}{section.2.9}%
+\contentsline {section}{\numberline {2.10}Gestion des risques}{25}{section.2.10}%
+\contentsline {section}{\numberline {2.11}Conclusion}{25}{section.2.11}%
+\contentsline {chapter}{\numberline {3}Méthodologie et conception du système}{26}{chapter.3}%
+\contentsline {section}{\numberline {3.1}Introduction}{26}{section.3.1}%
+\contentsline {section}{\numberline {3.2}Méthodologie de développement}{26}{section.3.2}%
+\contentsline {subsection}{\numberline {3.2.1}Démarche itérative et incrémentale}{26}{subsection.3.2.1}%
+\contentsline {subsection}{\numberline {3.2.2}Organisation du travail et jalons}{26}{subsection.3.2.2}%
+\contentsline {subsection}{\numberline {3.2.3}Gestion des versions}{27}{subsection.3.2.3}%
+\contentsline {section}{\numberline {3.3}Architecture logicielle}{27}{section.3.3}%
+\contentsline {subsection}{\numberline {3.3.1}Architecture en trois couches}{27}{subsection.3.3.1}%
+\contentsline {subsection}{\numberline {3.3.2}Organisation des services backend}{27}{subsection.3.3.2}%
+\contentsline {subsection}{\numberline {3.3.3}Communication REST et temps réel}{28}{subsection.3.3.3}%
+\contentsline {section}{\numberline {3.4}Conception du workflow : machine à états}{28}{section.3.4}%
+\contentsline {subsection}{\numberline {3.4.1}États de la visite}{28}{subsection.3.4.1}%
+\contentsline {subsection}{\numberline {3.4.2}Actions et transitions}{29}{subsection.3.4.2}%
+\contentsline {subsection}{\numberline {3.4.3}Dimension multi-états}{29}{subsection.3.4.3}%
+\contentsline {subsection}{\numberline {3.4.4}Conception de la concurrence}{29}{subsection.3.4.4}%
+\contentsline {section}{\numberline {3.5}Diagrammes UML}{30}{section.3.5}%
+\contentsline {subsection}{\numberline {3.5.1}Diagramme de séquence — enregistrement}{30}{subsection.3.5.1}%
+\contentsline {subsection}{\numberline {3.5.2}Diagramme d'activité — circuit de triage}{31}{subsection.3.5.2}%
+\contentsline {subsection}{\numberline {3.5.3}Diagramme de classes}{32}{subsection.3.5.3}%
+\contentsline {section}{\numberline {3.6}Conception de la base de données}{32}{section.3.6}%
+\contentsline {subsection}{\numberline {3.6.1}Modèle relationnel}{32}{subsection.3.6.1}%
+\contentsline {subsection}{\numberline {3.6.2}Contraintes d'intégrité}{32}{subsection.3.6.2}%
+\contentsline {subsection}{\numberline {3.6.3}Dictionnaire de données (extrait)}{33}{subsection.3.6.3}%
+\contentsline {subsection}{\numberline {3.6.4}Stratégie de migration}{33}{subsection.3.6.4}%
+\contentsline {section}{\numberline {3.7}Choix technologiques et justification}{34}{section.3.7}%
+\contentsline {section}{\numberline {3.8}Conclusion}{34}{section.3.8}%
+\contentsline {chapter}{\numberline {4}Réalisation de la plateforme PICU}{35}{chapter.4}%
+\contentsline {section}{\numberline {4.1}Introduction}{35}{section.4.1}%
+\contentsline {section}{\numberline {4.2}Environnement de développement}{35}{section.4.2}%
+\contentsline {subsection}{\numberline {4.2.1}Technologies}{35}{subsection.4.2.1}%
+\contentsline {subsection}{\numberline {4.2.2}Outils}{35}{subsection.4.2.2}%
+\contentsline {section}{\numberline {4.3}Module d'authentification et de gestion des accès}{35}{section.4.3}%
+\contentsline {section}{\numberline {4.4}Module patients et visites}{36}{section.4.4}%
+\contentsline {section}{\numberline {4.5}Module file d'attente et appel}{36}{section.4.5}%
+\contentsline {section}{\numberline {4.6}Module de triage}{37}{section.4.6}%
+\contentsline {section}{\numberline {4.7}Module de gestion des ressources}{37}{section.4.7}%
+\contentsline {subsection}{\numberline {4.7.1}Typologie et cycle de vie}{37}{subsection.4.7.1}%
+\contentsline {subsection}{\numberline {4.7.2}Affectation et libération}{37}{subsection.4.7.2}%
+\contentsline {subsection}{\numberline {4.7.3}Le plan des lits}{37}{subsection.4.7.3}%
+\contentsline {section}{\numberline {4.8}Module de prise en charge et consultations}{38}{section.4.8}%
+\contentsline {section}{\numberline {4.9}Module transferts, relèves, examens et tâches}{38}{section.4.9}%
+\contentsline {subsection}{\numberline {4.9.1}Transferts de lit}{38}{subsection.4.9.1}%
+\contentsline {subsection}{\numberline {4.9.2}Relèves}{38}{subsection.4.9.2}%
+\contentsline {subsection}{\numberline {4.9.3}Examens et tâches de soin}{39}{subsection.4.9.3}%
+\contentsline {section}{\numberline {4.10}Module supervision et alertes}{39}{section.4.10}%
+\contentsline {subsection}{\numberline {4.10.1}Seuils SLA}{39}{subsection.4.10.1}%
+\contentsline {subsection}{\numberline {4.10.2}Règles de supervision}{39}{subsection.4.10.2}%
+\contentsline {subsection}{\numberline {4.10.3}Alertes opérationnelles}{40}{subsection.4.10.3}%
+\contentsline {section}{\numberline {4.11}Tableaux de bord par rôle}{40}{section.4.11}%
+\contentsline {section}{\numberline {4.12}Synchronisation temps réel}{41}{section.4.12}%
+\contentsline {section}{\numberline {4.13}Couche d'assistance IA}{41}{section.4.13}%
+\contentsline {subsection}{\numberline {4.13.1}Objectifs et principes}{41}{subsection.4.13.1}%
+\contentsline {subsection}{\numberline {4.13.2}Fournisseur et routage des modèles}{41}{subsection.4.13.2}%
+\contentsline {subsection}{\numberline {4.13.3}Mode d'exécution et supervision}{42}{subsection.4.13.3}%
+\contentsline {subsection}{\numberline {4.13.4}Politique d'action et approbations}{42}{subsection.4.13.4}%
+\contentsline {subsection}{\numberline {4.13.5}Mode « shadow » du triage}{42}{subsection.4.13.5}%
+\contentsline {section}{\numberline {4.14}Conclusion}{42}{section.4.14}%
+\contentsline {chapter}{\numberline {5}Assurance qualité, sécurité et CI/CD}{43}{chapter.5}%
+\contentsline {section}{\numberline {5.1}Introduction}{43}{section.5.1}%
+\contentsline {section}{\numberline {5.2}Stratégie de test}{43}{section.5.2}%
+\contentsline {subsection}{\numberline {5.2.1}Niveaux de test}{43}{subsection.5.2.1}%
+\contentsline {subsection}{\numberline {5.2.2}Outillage}{43}{subsection.5.2.2}%
+\contentsline {section}{\numberline {5.3}Tests automatisés et résultats}{44}{section.5.3}%
+\contentsline {subsection}{\numberline {5.3.1}Invariants de ressources — \texttt {npm run test:v4}}{44}{subsection.5.3.1}%
+\contentsline {subsection}{\numberline {5.3.2}Règles de supervision — \texttt {npm run test:supervision}}{44}{subsection.5.3.2}%
+\contentsline {subsection}{\numberline {5.3.3}Intelligence d'enregistrement — \texttt {npm run test:registration}}{44}{subsection.5.3.3}%
+\contentsline {subsection}{\numberline {5.3.4}Analytique patient}{44}{subsection.5.3.4}%
+\contentsline {section}{\numberline {5.4}Cas d'étude : concurrence sur l'affectation d'un lit}{45}{section.5.4}%
+\contentsline {subsection}{\numberline {5.4.1}Le problème}{45}{subsection.5.4.1}%
+\contentsline {subsection}{\numberline {5.4.2}La solution retenue et sa vérification}{45}{subsection.5.4.2}%
+\contentsline {section}{\numberline {5.5}Tests fonctionnels et bout en bout}{45}{section.5.5}%
+\contentsline {section}{\numberline {5.6}Gestion des erreurs}{45}{section.5.6}%
+\contentsline {section}{\numberline {5.7}Sécurité et intégrité}{45}{section.5.7}%
+\contentsline {subsection}{\numberline {5.7.1}Contrôle d'accès}{45}{subsection.5.7.1}%
+\contentsline {subsection}{\numberline {5.7.2}Sécurité des échanges et des secrets}{46}{subsection.5.7.2}%
+\contentsline {subsection}{\numberline {5.7.3}Intégrité et traçabilité}{46}{subsection.5.7.3}%
+\contentsline {subsection}{\numberline {5.7.4}Accès aux données patients}{46}{subsection.5.7.4}%
+\contentsline {section}{\numberline {5.8}Qualité du code}{46}{section.5.8}%
+\contentsline {section}{\numberline {5.9}Industrialisation et CI/CD}{46}{section.5.9}%
+\contentsline {subsection}{\numberline {5.9.1}Gestion du code source}{46}{subsection.5.9.1}%
+\contentsline {subsection}{\numberline {5.9.2}Intégration continue}{46}{subsection.5.9.2}%
+\contentsline {subsection}{\numberline {5.9.3}Environnements et livraison}{47}{subsection.5.9.3}%
+\contentsline {subsection}{\numberline {5.9.4}Limites et améliorations de la CI/CD}{47}{subsection.5.9.4}%
+\contentsline {section}{\numberline {5.10}Conclusion}{47}{section.5.10}%
+\contentsline {chapter}{\numberline {6}Évaluation, bilan et perspectives}{48}{chapter.6}%
+\contentsline {section}{\numberline {6.1}Introduction}{48}{section.6.1}%
+\contentsline {section}{\numberline {6.2}Évaluation du projet}{48}{section.6.2}%
+\contentsline {subsection}{\numberline {6.2.1}Fonctionnalités réalisées et état de validation}{48}{subsection.6.2.1}%
+\contentsline {subsection}{\numberline {6.2.2}Performance et fiabilité}{49}{subsection.6.2.2}%
+\contentsline {section}{\numberline {6.3}Difficultés rencontrées et solutions apportées}{50}{section.6.3}%
+\contentsline {section}{\numberline {6.4}Limites de la plateforme}{50}{section.6.4}%
+\contentsline {section}{\numberline {6.5}Compétences acquises}{50}{section.6.5}%
+\contentsline {section}{\numberline {6.6}Perspectives}{51}{section.6.6}%
+\contentsline {subsection}{\numberline {6.6.1}Assistance IA NVIDIA NIM}{51}{subsection.6.6.1}%
+\contentsline {subsection}{\numberline {6.6.2}Industrialisation complète}{51}{subsection.6.6.2}%
+\contentsline {subsection}{\numberline {6.6.3}Interopérabilité hospitalière}{51}{subsection.6.6.3}%
+\contentsline {subsection}{\numberline {6.6.4}Indicateurs et pilotage}{51}{subsection.6.6.4}%
+\contentsline {subsection}{\numberline {6.6.5}Chemin vers une validation clinique}{51}{subsection.6.6.5}%
+\contentsline {section}{\numberline {6.7}Conclusion}{51}{section.6.7}%
+\contentsline {chapter}{Conclusion générale}{52}{chapter*.35}%
+\contentsline {chapter}{Bibliographie}{54}{chapter*.36}%
+\contentsline {chapter}{Webographie}{55}{chapter*.37}%
+\contentsline {chapter}{Annexes}{56}{chapter*.38}%
+\contentsline {section}{\numberline {6.8}Annexe A — Diagrammes UML}{56}{section.6.8}%
+\contentsline {section}{\numberline {6.9}Annexe B — Modèle de base de données}{56}{section.6.9}%
+\contentsline {section}{\numberline {6.10}Annexe C — Documentation des API}{56}{section.6.10}%
+\contentsline {section}{\numberline {6.11}Annexe D — Captures d'écran de la plateforme}{57}{section.6.11}%
+\contentsline {section}{\numberline {6.12}Annexe E — Scénarios et commandes de test}{57}{section.6.12}%
+\contentsline {paragraph}{Invariants de ressources (\texttt {npm run test:v4})}{57}{section.6.12}%
+\contentsline {paragraph}{Règles de supervision (\texttt {npm run test:supervision})}{57}{section.6.12}%
+\contentsline {paragraph}{Intelligence d'enregistrement (\texttt {npm run test:registration})}{57}{section.6.12}%
+\contentsline {paragraph}{Benchmark de triage}{57}{section.6.12}%
+\contentsline {section}{\numberline {6.13}Annexe F — Matrice de traçabilité complète}{58}{section.6.13}%

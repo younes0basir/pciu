@@ -1,24 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, UserPlus } from 'lucide-react'
+import { LayoutList, UserPlus } from 'lucide-react'
 
 import { checkBackendHealth } from '@/api.js'
 import { fetchBoard } from '@/api/board.js'
 import { getHomeRouteForRole, getStoredAuth, logout } from '@/api/auth.js'
-import { RoleDashboardHeader, RolePrimaryButton } from '@/components/layout/RoleDashboardHeader.jsx'
+import { AppShell } from '@/components/layout/AppShell.jsx'
 import { DashboardAlert } from '@/components/layout/DashboardAlert.jsx'
-import { DashboardMain } from '@/components/layout/DashboardMain.jsx'
-import { DashboardPageIntro } from '@/components/layout/DashboardPageIntro.jsx'
-import { DashboardShell } from '@/components/layout/DashboardShell.jsx'
-import { dashboardInputClass, dashboardSelectClass } from '@/components/layout/dashboardStyles.js'
+import { DashboardPageHeader } from '@/components/layout/DashboardPageHeader.jsx'
 import { callVisit, fetchVisitDetails, registerVisit } from '@/api/visits.js'
 import { setVisitCritical } from '@/api/careFlow.js'
-import { AccueilCarePathBanner } from '@/components/accueil/AccueilCarePathBanner.jsx'
-import { AccueilKpiBar } from '@/components/accueil/AccueilKpiBar.jsx'
 import { ChiefVisitDrawer } from '@/components/chief/ChiefVisitDrawer.jsx'
 import { useVisitEventStream } from '@/hooks/useVisitEventStream.js'
-import { AccueilPipelineColumn } from '@/components/accueil/AccueilPipelineColumn.jsx'
-import { AccueilQueueList } from '@/components/accueil/AccueilQueueList.jsx'
+import { QueueWorkspace } from '@/components/accueil/QueueWorkspace.jsx'
 import {
   boardVisitToCard,
   computeAccueilStats,
@@ -28,6 +22,8 @@ import { ChiefRegisterPatientModal } from '@/components/chief/ChiefRegisterPatie
 
 const REFRESH_MS = 30_000
 const ACCUEIL_ROLE = 'receptionist'
+
+const NAV_ITEMS = [{ id: 'flow', label: 'File d’attente', icon: LayoutList }]
 
 export default function AccueilDashboardPage() {
   const navigate = useNavigate()
@@ -135,6 +131,15 @@ export default function AccueilDashboardPage() {
     return { uncalled, called }
   }, [filteredWaiting])
 
+  const formattedLastUpdated = useMemo(() => {
+    if (!board?.timestamp) return null
+    return new Date(board.timestamp).toLocaleTimeString('fr-FR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    })
+  }, [board?.timestamp])
+
   async function runVisitMutation(fn) {
     setActionBusy(true)
     setError(null)
@@ -164,61 +169,38 @@ export default function AccueilDashboardPage() {
   }
 
   return (
-    <DashboardShell role={ACCUEIL_ROLE}>
-        <RoleDashboardHeader
-          role={ACCUEIL_ROLE}
-          subtitle="Enregistrement et file · flux temps réel (secours 30 s)"
-          backendHealth={backendHealth}
-          refreshing={refreshing}
-          onRefresh={() => loadBoard(true)}
-          user={auth?.user}
-          onLogout={() => {
-            void logout()
-            navigate('/login')
-          }}
-        />
-
-        <DashboardMain>
-        <DashboardPageIntro
+    <AppShell
+      role={ACCUEIL_ROLE}
+      user={auth?.user}
+      backendHealth={backendHealth}
+      refreshing={refreshing}
+      onRefresh={() => loadBoard(true)}
+      onLogout={() => {
+        void logout()
+        navigate('/login')
+      }}
+      searchValue={search}
+      onSearchChange={setSearch}
+      searchPlaceholder="Recherche patient (Nom, code, CIN…)"
+      navItems={NAV_ITEMS}
+      activeNavId="flow"
+      onSelectNav={() => {}}
+      lastUpdated={formattedLastUpdated}
+    >
+      <div className="space-y-4">
+        <DashboardPageHeader
           title="Tableau accueil"
+          badge="Enregistrement & file"
           description="Enregistrement des arrivées et pilotage de la file d’attente en temps réel."
-          meta={`Dernière mise à jour ${board?.timestamp ? new Date(board.timestamp).toLocaleTimeString('fr-FR') : '—'}`}
           actions={
-            <>
-              <RolePrimaryButton role={ACCUEIL_ROLE} onClick={() => setRegisterOpen(true)}>
-                <UserPlus className="size-4" />
-                Nouveau patient
-              </RolePrimaryButton>
-              <div className="relative sm:w-56">
-                <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="search"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Nom, code, CIN…"
-                  className={`${dashboardInputClass} pl-10`}
-                />
-              </div>
-              <select
-                value={priorityFilter}
-                onChange={(e) => setPriorityFilter(e.target.value)}
-                className={dashboardSelectClass}
-              >
-                <option value="all">Toutes priorités</option>
-                <option value="2">P1–P2</option>
-                <option value="3">P1–P3</option>
-                <option value="5">P1–P5</option>
-              </select>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className={`max-w-[200px] ${dashboardSelectClass}`}
-              >
-                <option value="all">Tous les statuts</option>
-                <option value="uncalled">Non appelés</option>
-                <option value="called">Appelés</option>
-              </select>
-            </>
+            <button
+              type="button"
+              onClick={() => setRegisterOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-primary/90 active:scale-[0.98]"
+            >
+              <UserPlus className="size-4" />
+              <span>Nouveau patient</span>
+            </button>
           }
         />
 
@@ -226,68 +208,63 @@ export default function AccueilDashboardPage() {
         {error ? <DashboardAlert variant="error">{error}</DashboardAlert> : null}
 
         {loading && !board ? (
-          <p className="py-20 text-center text-sm font-semibold text-slate-500">Chargement du tableau…</p>
+          <p className="py-12 text-center text-sm font-semibold text-text-secondary">
+            Chargement du tableau…
+          </p>
         ) : (
-          <>
-            <AccueilCarePathBanner phase="accueil" calledCount={stats.called ?? 0} />
-
-            <AccueilKpiBar stats={stats} />
-
-            <div>
-              <h2 className="mb-2 text-xs font-extrabold uppercase tracking-wide text-slate-500">
-                Accueil → infirmier
-              </h2>
-              <div className="grid gap-3 lg:grid-cols-2">
-                <AccueilPipelineColumn
-                  title="À appeler"
-                  subtitle="Enregistrés · action accueil : ouvrir la fiche et appeler"
-                  visits={pipeline.uncalled}
-                  tone="slate"
-                  onSelectVisit={setDrawerVisitId}
-                />
-                <AccueilPipelineColumn
-                  title="Chez l’infirmier"
-                  subtitle="Appelés · en attente de triage et placement au lit"
-                  visits={pipeline.called}
-                  tone="amber"
-                  onSelectVisit={setDrawerVisitId}
-                />
-              </div>
-            </div>
-
-            <AccueilQueueList visits={filteredWaiting} onSelectVisit={setDrawerVisitId} />
-          </>
+          <QueueWorkspace
+            stats={stats}
+            pipeline={pipeline}
+            filteredWaiting={filteredWaiting}
+            priorityFilter={priorityFilter}
+            statusFilter={statusFilter}
+            onPriorityFilterChange={setPriorityFilter}
+            onStatusFilterChange={setStatusFilter}
+            onSelectVisit={setDrawerVisitId}
+            uncalledTitle="À appeler"
+            uncalledSubtitle="Enregistrés · action accueil : ouvrir la fiche et appeler"
+            calledTitle="Chez l’infirmier"
+            calledSubtitle="Appelés · en attente de triage et placement au lit"
+            carePathPhase="accueil"
+          />
         )}
-        </DashboardMain>
+      </div>
 
-        <ChiefRegisterPatientModal
-          open={registerOpen}
-          role={ACCUEIL_ROLE}
-          onClose={() => setRegisterOpen(false)}
-          onSubmit={handleRegisterPatient}
-        />
+      <ChiefRegisterPatientModal
+        open={registerOpen}
+        role={ACCUEIL_ROLE}
+        onClose={() => setRegisterOpen(false)}
+        onSubmit={handleRegisterPatient}
+        canCallAfterRegister
+        onSuccessCall={async (visitId) => {
+          await callVisit(visitId)
+          await loadBoard(true)
+          setNotice('Patient enregistré et appelé.')
+        }}
+        onOpenVisit={setDrawerVisitId}
+      />
 
-        <ChiefVisitDrawer
-          open={Boolean(drawerVisitId)}
-          loading={drawerLoading}
-          detail={drawerDetail}
-          actionBusy={actionBusy}
-          onClose={() => setDrawerVisitId(null)}
-          clinicians={[]}
-          currentUserId={auth?.user?.id}
-          allowCall
-          allowPlace={false}
-          allowReturn={false}
-          allowClose={false}
-          allowConsultation={false}
-          allowTriage={false}
-          onCall={() => runVisitMutation(() => callVisit(drawerVisitId))}
-          allowCareFlow
-          allowCritical
-          onSetCritical={(critical) =>
-            runVisitMutation(() => setVisitCritical(drawerVisitId, critical))
-          }
-        />
-    </DashboardShell>
+      <ChiefVisitDrawer
+        open={Boolean(drawerVisitId)}
+        loading={drawerLoading}
+        detail={drawerDetail}
+        actionBusy={actionBusy}
+        onClose={() => setDrawerVisitId(null)}
+        clinicians={[]}
+        currentUserId={auth?.user?.id}
+        allowCall
+        allowPlace={false}
+        allowReturn={false}
+        allowClose={false}
+        allowConsultation={false}
+        allowTriage={false}
+        onCall={() => runVisitMutation(() => callVisit(drawerVisitId))}
+        allowCareFlow
+        allowCritical
+        onSetCritical={(critical) =>
+          runVisitMutation(() => setVisitCritical(drawerVisitId, critical))
+        }
+      />
+    </AppShell>
   )
 }
